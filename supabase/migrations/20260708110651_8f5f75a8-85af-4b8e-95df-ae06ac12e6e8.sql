@@ -1,0 +1,1 @@
+UPDATE public.jackpot_config SET pool_max = 40 WHERE active = true;

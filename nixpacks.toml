@@ -1,0 +1,12 @@
+# Hostinger Git deployment config (Nixpacks).
+# Ensures the TanStack Start nitro build targets a Node server (NOT the default
+# Cloudflare worker preset from @lovable.dev/vite-tanstack-config) and that the
+# production `start` script is used so /api/* route handlers are served.
+[phases.build]
+cmds = ["npm install", "NITRO_PRESET=node-server npm run build"]
+
+[start]
+cmd = "node .output/server/index.mjs"
+
+[variables]
+NITRO_PRESET = "node-server"
