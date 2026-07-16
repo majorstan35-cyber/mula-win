@@ -46,7 +46,7 @@ class MockSupabaseAuth {
     }
   }
 
-  async signUp({ email, password, options }: any) {
+  async signUp({ email, password, phone, options }: any) {
     try {
       const response = await fetch(`${BACKEND_URL}/auth/signup`, {
         method: "POST",
@@ -54,7 +54,7 @@ class MockSupabaseAuth {
         body: JSON.stringify({
           email,
           password,
-          phone: options?.data?.phone,
+          phone: phone || options?.data?.phone,
           displayName: options?.data?.display_name,
         }),
       });
@@ -202,7 +202,7 @@ class QueryBuilder {
       if (this.table === "profiles") {
         if (this.filters.updateData) {
           // Update profile
-          const response = await fetch(`${BACKEND_URL}/auth/profiles`, {
+          const response = await fetch(`${BACKEND_URL}/auth/profiles/`, {
             method: "PUT",
             headers,
             body: JSON.stringify(this.filters.updateData),

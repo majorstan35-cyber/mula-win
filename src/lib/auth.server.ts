@@ -1,3 +1,5 @@
+import jwt from "jsonwebtoken";
+
 // Server-only JWT verification helper used by API route handlers.
 const JWT_SECRET =
   process.env.JWT_SECRET || "super_secret_lucky_spin_jwt_key";
@@ -8,8 +10,6 @@ export function generateSession(user: {
   phone?: string;
   display_name?: string;
 }) {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const jwt = require("jsonwebtoken");
   const token = jwt.sign(
     {
       sub: user.id,
@@ -42,8 +42,6 @@ export async function verifyAuthToken(
   if (!authHeader?.startsWith("Bearer ")) return null;
   const token = authHeader.replace("Bearer ", "");
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const jwt = require("jsonwebtoken");
     const decoded = jwt.verify(token, JWT_SECRET) as any;
     return decoded;
   } catch {
