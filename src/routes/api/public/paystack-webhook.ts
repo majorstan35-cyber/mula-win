@@ -5,7 +5,7 @@ export const Route = createFileRoute("/api/public/paystack-webhook")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const secret = process.env.STRIPE_LIVE_API_KEY;
+        const secret = process.env.PAYSTACK_SECRET_KEY || process.env.STRIPE_LIVE_API_KEY;
         if (!secret) {
           console.error("[paystack-webhook] missing secret");
           return new Response("Server misconfigured", { status: 500 });
