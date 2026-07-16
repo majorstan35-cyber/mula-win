@@ -80,6 +80,8 @@ export const initiateMpesaCharge = createServerFn({ method: "POST" })
         throw new Error("Invalid Kenyan phone number format. Use e.g. 0712345678");
       }
 
+      const paystackPhone = "+" + formattedPhone;
+
       // 6. Call Paystack API to charge Mobile Money
       const paystackSecret = process.env.PAYSTACK_SECRET_KEY || process.env.STRIPE_LIVE_API_KEY;
       if (!paystackSecret) {
@@ -98,7 +100,7 @@ export const initiateMpesaCharge = createServerFn({ method: "POST" })
           currency: "KES",
           reference: reference,
           mobile_money: {
-            phone: formattedPhone,
+            phone: paystackPhone,
             provider: "mpesa"
           }
         })
@@ -117,7 +119,7 @@ export const initiateMpesaCharge = createServerFn({ method: "POST" })
           user_id: userId,
           run_id: run.id,
           amount_kes: config.ticket_price_kes,
-          phone: formattedPhone,
+          phone: paystackPhone,
           mpesa_checkout_request_id: reference,
           status: 'pending'
         });
