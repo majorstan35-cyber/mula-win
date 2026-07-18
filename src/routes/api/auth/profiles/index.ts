@@ -19,6 +19,22 @@ export const Route = createFileRoute("/api/auth/profiles/")({
 
         const { phone, display_name } = body;
         try {
+          if (phone) {
+            const { data: existingProfilePhone } = await supabase
+              .from('profiles')
+              .select('id')
+              .eq('phone', phone)
+              .neq('id', decoded.sub)
+              .maybeSingle();
+
+            if (existingProfilePhone) {
+              return json(
+                { message: "Phone number is already registered" },
+                400
+              );
+            }
+          }
+
           const updateData: any = {};
           if (phone !== undefined) updateData.phone = phone;
           if (display_name !== undefined) updateData.display_name = display_name;

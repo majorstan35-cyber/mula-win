@@ -34,6 +34,21 @@ export const Route = createFileRoute("/api/auth/signup")({
             );
           }
 
+          if (phone) {
+            const { data: existingPhone } = await supabase
+              .from('users')
+              .select('id')
+              .eq('phone', phone)
+              .maybeSingle();
+
+            if (existingPhone) {
+              return json(
+                { message: "Phone number is already registered", code: "phone_already_exists" },
+                400
+              );
+            }
+          }
+
           const passwordHash = await bcrypt.hash(password, 10);
           const { data: insertData } = await supabase
             .from('users')
