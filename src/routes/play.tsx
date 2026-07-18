@@ -522,9 +522,7 @@ function PlayPage() {
           {running ? "Drawing…" : "SPIN & WIN — KES 200"}
         </button>
       )}
-      <p className="mt-3 text-center text-xs text-[color:var(--muted-foreground)]">
-        Pay KES 200 via M-Pesa
-      </p>
+
 
 
       {/* Live feed */}
@@ -621,9 +619,7 @@ function PlayPage() {
                   )}
                 </button>
 
-                <p className="mt-3 text-center text-[10px] text-[color:var(--muted-foreground)]">
-                  Powered by Paystack · KES 200 non-refundable
-                </p>
+
               </>
             )}
             {payStep === "stk" && (
