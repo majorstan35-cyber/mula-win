@@ -67,48 +67,14 @@ export const Route = createFileRoute("/api/public/paystack-webhook")({
           })
           .eq("id", payment.id);
 
-        // Settle the draw
-        const { data: run } = await supabaseAdmin
-          .from("runs")
-          .select("id, round_id, player_numbers, status")
-          .eq("id", payment.run_id!)
-          .maybeSingle();
-
-        if (!run) return new Response("run not found", { status: 404 });
-        if (run.status === "drawn") return new Response("already drawn");
-
-        const { data: round } = await supabaseAdmin
-          .from("rounds")
-          .select("id, target_numbers")
-          .eq("id", run.round_id)
-          .maybeSingle();
-        if (!round) return new Response("round not found", { status: 404 });
-
-        const { data: config } = await supabaseAdmin
-          .from("jackpot_config")
-          .select("prize_tiers")
-          .eq("active", true)
-          .maybeSingle();
-
-        const targetSet = new Set<number>(round.target_numbers as number[]);
-        const picks = (run.player_numbers as number[]) ?? [];
-        const matched = picks.filter((n) => targetSet.has(n)).length;
-        const tiers =
-          (config?.prize_tiers as { match: number; prize_kes: number }[] | undefined) ?? [];
-        const tier = tiers
-          .filter((t) => matched >= t.match)
-          .sort((a, b) => b.match - a.match)[0];
-        const prize = tier?.prize_kes ?? 0;
-
-        await supabaseAdmin
-          .from("runs")
-          .update({
-            status: "drawn",
-            matched_count: matched,
-            prize_kes: prize,
-            drawn_at: new Date().toISOString(),
-          })
-          .eq("id", run.id);
+        // Settle the draw using the shared helper
+        try {
+          const { settleDraw } = await import("@/lib/game.server");
+          await settleDraw(payment.run_id!, supabaseAdmin);
+        } catch (err: any) {
+          console.error("[paystack-webhook] failed to settle draw:", err.message);
+          return new Response("Failed to settle draw", { status: 500 });
+        }
 
         return new Response("ok");
       },

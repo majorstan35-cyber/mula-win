@@ -15,6 +15,7 @@ export const Route = createFileRoute("/api/game/history")({
             .from('runs')
             .select('id, matched_count, prize_kes, player_numbers, drawn_at, created_at, round_id')
             .eq('user_id', decoded.sub)
+            .eq('status', 'drawn')
             .order('created_at', { ascending: false })
             .limit(50);
 
