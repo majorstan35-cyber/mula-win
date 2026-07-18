@@ -2,21 +2,22 @@ FROM oven/bun:1-alpine
 
 WORKDIR /app
 
-# Copy dependency configs
+# Copy dependency files
 COPY package.json bun.lock ./
 
-# Install dependencies (frozen lockfile, with timeout to avoid hanging)
-ENV BUN_CONFIG_NETWORK_TIMEOUT=60000
+# Install dependencies
 RUN bun install --frozen-lockfile
 
-# Copy application files
+# Copy application
 COPY . .
 
-# Set environment variables
+# Build the production app
+RUN bun run build
+
 ENV PORT=3000
 ENV HOST=0.0.0.0
 
 EXPOSE 3000
 
-# Start Vite dev server
-CMD ["bun", "run", "dev", "--port", "3000", "--host", "0.0.0.0"]
+# Start the production server
+CMD ["bun", "run", "start"]
