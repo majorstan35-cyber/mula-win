@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState, useCallback } from "react";
 import { useServerFn } from "@tanstack/react-start";
 import { getPublicState } from "@/lib/draw.functions";
-import { initiateMpesaCharge, getRunStatus } from "@/lib/paystack.functions";
+import { initiateMpesaCharge, getRunStatus, submitUserComment } from "@/lib/paystack.functions";
 import { useAuth } from "@/lib/auth-context";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -92,6 +92,7 @@ function PlayPage() {
   const startCharge = useServerFn(initiateMpesaCharge);
   const pollRun = useServerFn(getRunStatus);
   const runState = useServerFn(getPublicState);
+  const postComment = useServerFn(submitUserComment);
 
   const [poolMin, setPoolMin] = useState(1);
   const [poolMax, setPoolMax] = useState(40);
@@ -100,6 +101,10 @@ function PlayPage() {
   const [running, setRunning] = useState(false);
   const [reveal, setReveal] = useState<number[]>([]);
   const [result, setResult] = useState<Result | null>(null);
+
+  const [commentText, setCommentText] = useState("");
+  const [commentSent, setCommentSent] = useState(false);
+  const [submittingComment, setSubmittingComment] = useState(false);
 
   const [feed, setFeed] = useState<FeedItem[]>(() =>
     Array.from({ length: 8 }, (_, i) => randomFeedItem(i, i * 15 + Math.floor(Math.random() * 20))),
@@ -227,7 +232,24 @@ function PlayPage() {
     setErr(null);
     setRunId(null);
     setStkMsg("");
+    setCommentText("");
+    setCommentSent(false);
+    setSubmittingComment(false);
     if (pollTimer.current) clearInterval(pollTimer.current);
+  }
+
+  async function handleCommentSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!commentText.trim() || submittingComment) return;
+    setSubmittingComment(true);
+    try {
+      await postComment({ data: { runId: result?.run.id, commentText } });
+      setCommentSent(true);
+    } catch (err: any) {
+      setErr(err.message ?? "Could not post comment");
+    } finally {
+      setSubmittingComment(false);
+    }
   }
 
   function openPay() {
@@ -503,12 +525,48 @@ function PlayPage() {
       {err && <div className="mt-4 rounded-lg border border-[color:var(--destructive)]/40 bg-[color:var(--destructive)]/10 px-3 py-2 text-xs text-[color:var(--destructive)]">{err}</div>}
 
       {result ? (
-        <button
-          onClick={resetForNextSpin}
-          className="bg-gold-gradient shadow-gold mt-6 w-full rounded-2xl py-5 font-display text-2xl font-black text-[oklch(0.12_0.01_60)]"
-        >
-          Play again
-        </button>
+        <>
+          <button
+            onClick={resetForNextSpin}
+            className="bg-gold-gradient shadow-gold mt-6 w-full rounded-2xl py-5 font-display text-2xl font-black text-[oklch(0.12_0.01_60)]"
+          >
+            Play again
+          </button>
+
+          {/* Post-spin Comment Section */}
+          <div className="mt-5 animate-slide-up rounded-2xl border border-[color:var(--gold)]/30 bg-[color:var(--card)]/60 p-4 shadow-gold-soft">
+            <h3 className="font-display text-sm font-bold text-[color:var(--gold-soft)] flex items-center gap-1.5">
+              <span>💬</span> Leave a Reaction / Comment
+            </h3>
+            <p className="mt-1 text-xs text-[color:var(--muted-foreground)]">
+              How was your spin? Share your feedback with us below.
+            </p>
+
+            {commentSent ? (
+              <div className="mt-3 rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-3 py-2.5 text-center text-xs font-semibold text-emerald-400">
+                ✨ Thank you! Your comment has been submitted.
+              </div>
+            ) : (
+              <form onSubmit={handleCommentSubmit} className="mt-3 space-y-2">
+                <textarea
+                  rows={2}
+                  placeholder="Type your comment or reaction..."
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  maxLength={300}
+                  className="w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--background)]/40 p-3 font-sans text-xs outline-none focus:border-[color:var(--gold)] resize-none"
+                />
+                <button
+                  type="submit"
+                  disabled={submittingComment || !commentText.trim()}
+                  className="w-full rounded-xl border border-[color:var(--gold)]/40 bg-[color:var(--gold)]/10 py-2.5 font-display text-xs font-bold text-[color:var(--gold-soft)] hover:bg-[color:var(--gold)]/20 disabled:opacity-50 transition active:scale-98"
+                >
+                  {submittingComment ? "Posting comment…" : "Post Comment"}
+                </button>
+              </form>
+            )}
+          </div>
+        </>
       ) : (
         <button
           onClick={openPay}

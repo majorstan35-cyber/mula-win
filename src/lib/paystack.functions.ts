@@ -350,3 +350,42 @@ export const getRunStatus = createServerFn({ method: "GET" })
       throw err;
     }
   });
+
+// Submit user comment after a spin
+export const submitUserComment = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((data: { runId?: string; commentText: string }) => data)
+  .handler(async ({ data, context }) => {
+    const { runId, commentText } = data;
+    const userId = context.userId;
+
+    if (!commentText || !commentText.trim()) {
+      throw new Error("Comment text cannot be empty.");
+    }
+
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+      const cleanText = commentText.trim().slice(0, 500);
+
+      const { data: inserted, error } = await supabaseAdmin
+        .from("comments")
+        .insert({
+          user_id: userId,
+          run_id: runId || null,
+          comment_text: cleanText,
+        })
+        .select("*")
+        .single();
+
+      if (error) {
+        console.error("Failed to submit comment:", error.message);
+        throw new Error(error.message || "Failed to save comment.");
+      }
+
+      return { success: true, comment: inserted };
+    } catch (err: any) {
+      console.error("submitUserComment error:", err.message);
+      throw err;
+    }
+  });
+

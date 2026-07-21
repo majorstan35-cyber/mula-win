@@ -132,6 +132,42 @@ function AdminPage() {
           ))}
         </ul>
       </section>
+
+      {/* Player Comments Section - Admin Exclusive */}
+      <section className="mt-8 rounded-2xl border border-[color:var(--gold)]/30 bg-[color:var(--card)]/50 p-5 shadow-gold-soft">
+        <div className="flex items-center justify-between">
+          <h2 className="font-display text-xl font-bold flex items-center gap-2">
+            <span>💬</span> Player Comments & Feedback
+          </h2>
+          <span className="text-xs font-semibold text-[color:var(--gold-soft)]">
+            {data.comments ? data.comments.length : 0} total
+          </span>
+        </div>
+
+        {(!data.comments || data.comments.length === 0) ? (
+          <p className="mt-4 text-xs text-[color:var(--muted-foreground)] italic">
+            No player comments submitted yet.
+          </p>
+        ) : (
+          <ul className="mt-4 divide-y divide-[color:var(--border)]">
+            {data.comments.map((c: any) => (
+              <li key={c.id} className="py-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-[color:var(--foreground)]">
+                    {c.display_name} {c.phone ? `(${c.phone})` : ""}
+                  </span>
+                  <span className="text-[10px] text-[color:var(--muted-foreground)]">
+                    {new Date(c.created_at).toLocaleString()}
+                  </span>
+                </div>
+                <p className="mt-1.5 rounded-lg border border-[color:var(--border)]/60 bg-[color:var(--background)]/40 p-2.5 text-xs text-[color:var(--foreground)]/90">
+                  "{c.comment_text}"
+                </p>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
     </main>
   );
 }
