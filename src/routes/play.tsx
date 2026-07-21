@@ -26,9 +26,40 @@ const CITIES = [
 ];
 
 function generateOrganicMessage(matched: number): string {
+  if (matched === 9) {
+    const p = [
+      "🎉 WON KES 20,000!",
+      "M-Pesa alert: KES 20,000 credited!",
+      "Matched 9/12 - KES 20,000 cash out!",
+      "Wueh! Just received KES 20,000 into M-Pesa"
+    ];
+    return p[Math.floor(Math.random() * p.length)];
+  }
+  if (matched === 10) {
+    const p = [
+      "🎉 WON KES 30,000!",
+      "M-Pesa payment received: KES 30,000!",
+      "Matched 10/12 - KES 30,000 win!",
+      "Jackpot near-miss! KES 30,000 payout"
+    ];
+    return p[Math.floor(Math.random() * p.length)];
+  }
+  if (matched === 11) {
+    const p = [
+      "🔥 WON KES 50,000!",
+      "M-Pesa alert: KES 50,000 credited!",
+      "Matched 11/12 - KES 50,000 win!",
+      "So close to 1M! Got KES 50,000 payout"
+    ];
+    return p[Math.floor(Math.random() * p.length)];
+  }
+  if (matched >= 12) {
+    return "🏆 GRAND JACKPOT WINNER! KES 1,000,000!";
+  }
+
   const highPhrases = [
     "Almost!", "Oh my god so close", "Missed by 2 numbers!", "Ayaya, missed by one", 
-    "No way, matched 10", "My heart stopped", "I remained with only two", "Jackpot loading for sure"
+    "My heart stopped", "I remained with only two", "Jackpot loading for sure"
   ];
   const midPhrases = [
     "Getting closer", "Feeling lucky today", "Let's go again", "Almost got half",
@@ -39,7 +70,7 @@ function generateOrganicMessage(matched: number): string {
     "Nakuja tena", "Trust the process", "One more spin", "Warm up spin done"
   ];
   
-  const pool = matched >= 10 ? highPhrases : matched >= 7 ? midPhrases : lowPhrases;
+  const pool = matched === 8 ? highPhrases : matched >= 6 ? midPhrases : lowPhrases;
   const base = pool[Math.floor(Math.random() * pool.length)];
   
   // Randomly add emojis or particles
@@ -56,17 +87,17 @@ function generateOrganicMessage(matched: number): string {
 type FeedItem = { id: number; tag: string; city: string; matched: number; secondsAgo: number; msg: string };
 
 function randomFeedItem(id: number, secondsAgo = 0): FeedItem {
-  // A weighted random selection for realistic match distribution
+  // Controlled random selection: wins (9, 10, 11) are rare and authentic
   const rand = Math.random();
   let matched = 5;
   if (rand < 0.25) matched = 4;
   else if (rand < 0.50) matched = 5;
-  else if (rand < 0.70) matched = 6;
-  else if (rand < 0.85) matched = 7;
-  else if (rand < 0.93) matched = 8;
-  else if (rand < 0.97) matched = 9;
-  else if (rand < 0.995) matched = 10;
-  else matched = 11;
+  else if (rand < 0.72) matched = 6;
+  else if (rand < 0.88) matched = 7;
+  else if (rand < 0.96) matched = 8;
+  else if (rand < 0.985) matched = 9;   // ~2.5% chance 9/12 (KES 20,000)
+  else if (rand < 0.997) matched = 10;  // ~1.2% chance 10/12 (KES 30,000)
+  else matched = 11;                     // ~0.3% chance 11/12 (KES 50,000)
 
   return {
     id,
@@ -84,6 +115,16 @@ function formatAgo(s: number) {
   if (m < 60) return `${m}m ago`;
   const h = Math.floor(m / 60);
   return `${h}h ago`;
+}
+
+function getTargetOnlineRange(): { min: number; max: number } {
+  const currentHour = new Date().getHours();
+  // Past midnight (00:00 to 05:59): around 700 online
+  if (currentHour >= 0 && currentHour < 6) {
+    return { min: 620, max: 820 };
+  }
+  // Daytime (06:00 to 23:59): 1000 to 2000 online
+  return { min: 1050, max: 1980 };
 }
 
 function PlayPage() {
@@ -109,7 +150,10 @@ function PlayPage() {
   const [feed, setFeed] = useState<FeedItem[]>(() =>
     Array.from({ length: 8 }, (_, i) => randomFeedItem(i, i * 15 + Math.floor(Math.random() * 20))),
   );
-  const [online, setOnline] = useState(() => Math.floor(1100 + Math.random() * 400));
+  const [online, setOnline] = useState(() => {
+    const { min, max } = getTargetOnlineRange();
+    return Math.floor(min + Math.random() * (max - min));
+  });
   const trendRef = useRef(1); // 1 for up, -1 for down
 
   useEffect(() => {
@@ -121,18 +165,19 @@ function PlayPage() {
         return [item, ...aged].slice(0, 8);
       });
       setOnline((n) => {
+        const { min, max } = getTargetOnlineRange();
         // Randomly flip trend with 5% probability
         if (Math.random() < 0.05) {
           trendRef.current *= -1;
         }
         // Force trend flip if boundaries are hit
-        if (n <= 920) trendRef.current = 1;
-        if (n >= 2280) trendRef.current = -1;
+        if (n <= min + 15) trendRef.current = 1;
+        if (n >= max - 15) trendRef.current = -1;
 
         // Change by a sequential step
-        const delta = (Math.floor(Math.random() * 15) + 5) * trendRef.current;
+        const delta = (Math.floor(Math.random() * 12) + 3) * trendRef.current;
         const newVal = n + delta;
-        return Math.max(900, Math.min(2300, newVal));
+        return Math.max(min, Math.min(max, newVal));
       });
     };
     const id = setInterval(tick, 3500);
@@ -609,6 +654,10 @@ function PlayPage() {
                 <div className="font-display text-xl font-bold text-[color:var(--gold)]">
                   {f.matched}<span className="text-xs text-[color:var(--muted-foreground)]">/{need}</span>
                 </div>
+                {f.matched === 9 && <div className="text-[10px] font-bold text-emerald-400">+ KES 20,000</div>}
+                {f.matched === 10 && <div className="text-[10px] font-bold text-emerald-400">+ KES 30,000</div>}
+                {f.matched === 11 && <div className="text-[10px] font-bold text-emerald-400">+ KES 50,000</div>}
+                {f.matched >= 12 && <div className="text-[10px] font-bold text-amber-300">+ KES 1,000,000</div>}
               </div>
             </li>
           ))}
