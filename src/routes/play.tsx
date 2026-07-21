@@ -25,79 +25,130 @@ const CITIES = [
   "Ruiru", "Kiambu", "Athi River", "Nanyuki", "Kajiado", "Migori", "Homa Bay", "Busia",
 ];
 
+let nextWinAllowedTime = 0;
+let winBurstCount = 0;
+
 function generateOrganicMessage(matched: number): string {
   if (matched === 9) {
-    const p = [
-      "🎉 WON KES 20,000!",
-      "M-Pesa alert: KES 20,000 credited!",
-      "Matched 9/12 - KES 20,000 cash out!",
-      "Wueh! Just received KES 20,000 into M-Pesa"
+    const phrases = [
+      "won after playing 5 times",
+      "M-Pesa 20k confirmed, thank you!",
+      "finally got 9/12 on my 4th try today",
+      "almost hit 10, got 9/12 instead",
+      "just got 20,000 on my 3rd spin",
+      "na mpaka 4th attempt ndio nimepata 9/12",
+      "20k in my M-Pesa right now",
+      "nimejaribu mara 3 hatimaye 9/12",
+      "M-Pesa alert received, KES 20,000!"
     ];
-    return p[Math.floor(Math.random() * p.length)];
-  }
-  if (matched === 10) {
-    const p = [
-      "🎉 WON KES 30,000!",
-      "M-Pesa payment received: KES 30,000!",
-      "Matched 10/12 - KES 30,000 win!",
-      "Jackpot near-miss! KES 30,000 payout"
-    ];
-    return p[Math.floor(Math.random() * p.length)];
-  }
-  if (matched === 11) {
-    const p = [
-      "🔥 WON KES 50,000!",
-      "M-Pesa alert: KES 50,000 credited!",
-      "Matched 11/12 - KES 50,000 win!",
-      "So close to 1M! Got KES 50,000 payout"
-    ];
-    return p[Math.floor(Math.random() * p.length)];
-  }
-  if (matched >= 12) {
-    return "🏆 GRAND JACKPOT WINNER! KES 1,000,000!";
+    return phrases[Math.floor(Math.random() * phrases.length)];
   }
 
-  const highPhrases = [
-    "Almost!", "Oh my god so close", "Missed by 2 numbers!", "Ayaya, missed by one", 
-    "My heart stopped", "I remained with only two", "Jackpot loading for sure"
+  if (matched === 10) {
+    const phrases = [
+      "wueh 10/12 payout received",
+      "matched 10/12! 30k in the bank",
+      "won 30,000 on my 6th spin today",
+      "M-Pesa credited KES 30,000",
+      "manze 30k confirmed!",
+      "missed jackpot by only 2 numbers, got 30k"
+    ];
+    return phrases[Math.floor(Math.random() * phrases.length)];
+  }
+
+  if (matched === 11) {
+    const phrases = [
+      "so close to 1M! Got KES 50,000 payout 🔥",
+      "50k received via M-Pesa!",
+      "matched 11/12 on my 8th spin today",
+      "M-Pesa alert KES 50,000 confirmed"
+    ];
+    return phrases[Math.floor(Math.random() * phrases.length)];
+  }
+
+  if (matched >= 12) {
+    return "GRAND JACKPOT WINNER! KES 1,000,000!";
+  }
+
+  // Non-winning natural organic messages (no forced emojis, clean human tone)
+  if (matched === 8) {
+    const phrases = [
+      "missed by 2 numbers",
+      "almost got 9/12, 8 matched",
+      "2nd try today, 8/12 matched",
+      "so close, 8/12",
+      "remained with 4 only",
+      "warm up spin done, 8 matched",
+      "ayaya missed by two"
+    ];
+    return phrases[Math.floor(Math.random() * phrases.length)];
+  }
+
+  if (matched === 7 || matched === 6) {
+    const phrases = [
+      "getting closer",
+      "3rd attempt today got 7/12",
+      "feeling lucky, let me spin again",
+      "almost got half",
+      "chapaa inakuja soon",
+      "not bad, let's keep pushing",
+      "one more spin manze",
+      "trust the process"
+    ];
+    return phrases[Math.floor(Math.random() * phrases.length)];
+  }
+
+  // 4 or 5 matched
+  const phrases = [
+    "we try again",
+    "bahati mbaya, next one",
+    "ah just missed it",
+    "nakuja tena",
+    "process continues",
+    "playing again now"
   ];
-  const midPhrases = [
-    "Getting closer", "Feeling lucky today", "Let's go again", "Almost got half",
-    "Chapaa inakuja soon", "Not bad, let's keep pushing", "Bahati iko karibu", "Next spin is mine"
-  ];
-  const lowPhrases = [
-    "Missed by a whisker", "We try again", "Bahati mbaya", "Ah, just missed it",
-    "Nakuja tena", "Trust the process", "One more spin", "Warm up spin done"
-  ];
-  
-  const pool = matched === 8 ? highPhrases : matched >= 6 ? midPhrases : lowPhrases;
-  const base = pool[Math.floor(Math.random() * pool.length)];
-  
-  // Randomly add emojis or particles
-  const emojis = ["", "!", "!!", "...", " 😭", " 🔥", " 🍀", " 💸", " 😤", " 🚀", " 🤞", " 💔", " 😱"];
-  const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
-  
-  // Randomly start with Swahili expressions
-  const swahiliStart = ["", "", "", "Manze, ", "Wueh, ", "Ala! ", "Enyewe, ", "Aish, "];
-  const start = swahiliStart[Math.floor(Math.random() * swahiliStart.length)];
-  
-  return `${start}${base}${randomEmoji}`;
+  return phrases[Math.floor(Math.random() * phrases.length)];
 }
 
 type FeedItem = { id: number; tag: string; city: string; matched: number; secondsAgo: number; msg: string };
 
-function randomFeedItem(id: number, secondsAgo = 0): FeedItem {
-  // Controlled random selection: wins (9, 10, 11) are rare and authentic
-  const rand = Math.random();
+function randomFeedItem(id: number, secondsAgo = 0, forceWin?: number): FeedItem {
   let matched = 5;
-  if (rand < 0.25) matched = 4;
-  else if (rand < 0.50) matched = 5;
-  else if (rand < 0.72) matched = 6;
-  else if (rand < 0.88) matched = 7;
-  else if (rand < 0.96) matched = 8;
-  else if (rand < 0.985) matched = 9;   // ~2.5% chance 9/12 (KES 20,000)
-  else if (rand < 0.997) matched = 10;  // ~1.2% chance 10/12 (KES 30,000)
-  else matched = 11;                     // ~0.3% chance 11/12 (KES 50,000)
+
+  if (forceWin !== undefined) {
+    matched = forceWin;
+  } else {
+    const now = Date.now();
+    let canWin = false;
+
+    if (now >= nextWinAllowedTime) {
+      canWin = true;
+      winBurstCount++;
+      if (winBurstCount === 1) {
+        // 1st win in burst -> next win allowed in 1 to 3 minutes (60s to 180s)
+        nextWinAllowedTime = now + (60 + Math.floor(Math.random() * 120)) * 1000;
+      } else {
+        // 2nd win in burst -> long quiet gap of 10 to 12 minutes (600s to 720s)
+        winBurstCount = 0;
+        nextWinAllowedTime = now + (600 + Math.floor(Math.random() * 120)) * 1000;
+      }
+    }
+
+    if (canWin) {
+      const winRand = Math.random();
+      if (winRand < 0.72) matched = 9;      // 72% of wins: 9/12 (KES 20k)
+      else if (winRand < 0.96) matched = 10; // 24% of wins: 10/12 (KES 30k)
+      else matched = 11;                  // 4% of wins: 11/12 (KES 50k) - ultra rare!
+    } else {
+      // Normal non-winning distribution
+      const rand = Math.random();
+      if (rand < 0.30) matched = 4;
+      else if (rand < 0.60) matched = 5;
+      else if (rand < 0.82) matched = 6;
+      else if (rand < 0.94) matched = 7;
+      else matched = 8;
+    }
+  }
 
   return {
     id,
