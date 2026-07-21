@@ -306,17 +306,18 @@ function PlayPage() {
       elapsed += 3;
       try {
         const s = await pollRun({ data: { runId: id } });
-        if (s.runStatus === "drawn" && s.run && s.target && s.seedHash && s.roundNumber !== null) {
+        if (s.runStatus === "drawn" && s.run && Array.isArray(s.target) && s.target.length > 0) {
           if (pollTimer.current) clearInterval(pollTimer.current);
           setPayOpen(false);
           setPayStep(null);
           
-          // Align matched numbers to their exact position in 'picks'
+          const playerPicks: number[] = s.run.player_numbers?.length ? s.run.player_numbers : picks;
+          // Align matched numbers to their exact position in 'playerPicks'
           const alignedTarget = new Array(need).fill(undefined);
           const nonMatched: number[] = [];
           for (const num of s.target) {
-            const idx = picks.indexOf(num as number);
-            if (idx !== -1) {
+            const idx = playerPicks.indexOf(num as number);
+            if (idx !== -1 && alignedTarget[idx] === undefined) {
               alignedTarget[idx] = num;
             } else {
               nonMatched.push(num as number);

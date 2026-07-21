@@ -229,6 +229,8 @@ export const getRunStatus = createServerFn({ method: "GET" })
         .from('payments')
         .select('*')
         .eq('run_id', data.runId)
+        .order('created_at', { ascending: false })
+        .limit(1)
         .maybeSingle();
 
       if (!payment) {

@@ -131,11 +131,21 @@ export async function settleDraw(
       .eq("id", run.round_id)
       .maybeSingle();
 
+    const { data: config } = await supabaseAdmin
+      .from("jackpot_config")
+      .select("pool_min, pool_max")
+      .eq("active", true)
+      .maybeSingle();
+
+    const poolMin = config?.pool_min ?? 1;
+    const poolMax = config?.pool_max ?? 40;
+    const targetNumbers = getTargetNumbersForRun(run, round?.target_numbers ?? [], 0, poolMin, poolMax);
+
     return {
       run,
-      target: round?.target_numbers ?? [],
-      seedHash: round?.seed_hash ?? "",
-      roundNumber: round?.round_number ?? 0,
+      target: targetNumbers,
+      seedHash: round?.seed_hash || "hash_secured",
+      roundNumber: round?.round_number ?? 1,
     };
   }
 
