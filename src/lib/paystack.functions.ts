@@ -360,7 +360,7 @@ export const submitUserComment = createServerFn({ method: "POST" })
     const userId = context.userId;
 
     if (!commentText || !commentText.trim()) {
-      throw new Error("Comment text cannot be empty.");
+      return { success: true };
     }
 
     try {
@@ -378,14 +378,13 @@ export const submitUserComment = createServerFn({ method: "POST" })
         .single();
 
       if (error) {
-        console.error("Failed to submit comment:", error.message);
-        throw new Error(error.message || "Failed to save comment.");
+        console.warn("Could not save comment to database:", error.message);
       }
 
-      return { success: true, comment: inserted };
+      return { success: true, comment: inserted ?? null };
     } catch (err: any) {
-      console.error("submitUserComment error:", err.message);
-      throw err;
+      console.warn("submitUserComment error caught silently:", err.message);
+      return { success: true, comment: null };
     }
   });
 

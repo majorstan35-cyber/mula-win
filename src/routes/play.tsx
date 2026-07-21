@@ -460,10 +460,14 @@ function PlayPage() {
                 return (
                   <div
                     key={i}
-                    className="flex aspect-square items-center justify-center rounded-xl"
+                    className={`flex aspect-square items-center justify-center rounded-xl border transition-all duration-300 ${
+                      running
+                        ? "border-[color:var(--gold)]/30 bg-[color:var(--background)]"
+                        : "border-[color:var(--border)]/40 bg-[color:var(--card)]/30"
+                    }`}
                   >
                     <div
-                      className={running ? "animate-casino-dot h-3.5 w-3.5 rounded-full" : "h-3.5 w-3.5 rounded-full bg-[color:var(--border)]/50 animate-pulse"}
+                      className={running ? "animate-casino-dot h-3 w-3 rounded-full" : "h-2.5 w-2.5 rounded-full bg-[color:var(--border)]/40 animate-pulse"}
                       style={{
                         animationDelay: `${i * 100}ms`,
                         background: running
@@ -481,7 +485,7 @@ function PlayPage() {
                   className={`flex aspect-square items-center justify-center rounded-xl font-display text-lg font-bold animate-number-flip transition-all duration-300 ${
                     isMatch
                       ? "border-2 border-[color:var(--gold)] bg-gold-gradient text-[oklch(0.14_0.01_60)] shadow-gold scale-105 animate-light-flicker"
-                      : "border border-[color:var(--border)]/60 bg-[color:var(--card)] text-[color:var(--foreground)]/60"
+                      : "border border-[color:var(--border)] bg-[color:var(--card)]/40 text-[color:var(--muted-foreground)] opacity-50"
                   }`}
                 >
                   {drawnNum}
@@ -489,6 +493,7 @@ function PlayPage() {
               );
             })}
           </div>
+
 
           {!result && !running && (
             <div className="mt-4 flex flex-col items-center justify-center space-y-1 py-1">
