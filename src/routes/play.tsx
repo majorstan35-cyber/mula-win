@@ -28,18 +28,18 @@ const CITIES = [
 function generateOrganicMessage(matched: number): string {
   if (matched === 9) {
     const phrases = [
-      "manze stay guided, 20k confirmed! 💸",
-      "Acoro stay guided! 20k inside M-Pesa 🥳",
+      "Acoro! 20k inside M-Pesa 🥳",
       "Omera 20k drop kwa M-Pesa! 🔥",
       "won KES 20,000 after 5 spins! 💸",
       "Kai! Nimepata 9/12 mara ya 4 🍀",
       "Ero kamano! 9/12 matched 🥳",
       "chapaa imeingia M-Pesa 20,000! 🚀",
       "nimepata 9/12 kwa spin ya 4 🔥",
-      "stay guided, 20k payout confirmed! 💥",
       "finally 9/12 on 3rd try today ✨",
       "Wira ni wira, 20k inside! 💸",
-      "Adier 20,000 cash out! 🍀"
+      "Adier 20,000 cash out! 🍀",
+      "M-Pesa 20,000 payment received 💸",
+      "manze stay guided, 20k confirmed! 🔥"
     ];
     return phrases[Math.floor(Math.random() * phrases.length)];
   }
@@ -50,9 +50,9 @@ function generateOrganicMessage(matched: number): string {
       "wueh 10/12 payout received! 🔥",
       "Omera 30,000 cash out! 💸",
       "matched 10/12! 30k in the bank 🚀",
-      "stay guided, 30k M-Pesa alert! 💥",
       "missed 1M by only 2 numbers, got 30k! 🍀",
-      "Kai 30k confirmed kwa spin ya 6! 🥳"
+      "Kai 30k confirmed kwa spin ya 6! 🥳",
+      "M-Pesa alert: KES 30,000 credited ✨"
     ];
     return phrases[Math.floor(Math.random() * phrases.length)];
   }
@@ -75,7 +75,7 @@ function generateOrganicMessage(matched: number): string {
   if (matched === 8) {
     const phrases = [
       "ayaya missed by 2 numbers 😭",
-      "Acoro stay guided, 8 matched 🤞",
+      "Acoro 8 matched, so close 🤞",
       "Omera so close, 8/12 today 🔥",
       "almost got 9/12, 8 matched 🍀",
       "2nd try today, 8/12 matched",
@@ -87,7 +87,7 @@ function generateOrganicMessage(matched: number): string {
 
   if (matched === 7 || matched === 6) {
     const phrases = [
-      "getting closer, stay guided 🚀",
+      "getting closer 🚀",
       "3rd attempt today got 7/12 🤞",
       "feeling lucky, let me spin again 🍀",
       "Wi muogi, 7/12 today 🔥",
@@ -106,7 +106,7 @@ function generateOrganicMessage(matched: number): string {
     "Acoro process continues ✨",
     "ah just missed it 😭",
     "nakuja tena kwa spin 🚀",
-    "stay guided, playing again now 🍀"
+    "playing again now 🍀"
   ];
   return phrases[Math.floor(Math.random() * phrases.length)];
 }
@@ -119,16 +119,16 @@ function randomFeedItem(id: number, secondsAgo = 0, forceWin?: number): FeedItem
   if (forceWin !== undefined) {
     matched = forceWin;
   } else {
-    // Catchy, balanced random selection for wins & non-wins
+    // Realistic win ratio (~18%-22% wins = 4 winners per ~20 comments)
     const rand = Math.random();
-    if (rand < 0.28) matched = 4;
-    else if (rand < 0.56) matched = 5;
-    else if (rand < 0.78) matched = 6;
-    else if (rand < 0.91) matched = 7;
-    else if (rand < 0.95) matched = 8;
-    else if (rand < 0.984) matched = 9;   // ~3.4% chance 9/12 (KES 20,000)
-    else if (rand < 0.996) matched = 10;  // ~1.2% chance 10/12 (KES 30,000)
-    else matched = 11;                     // ~0.4% chance 11/12 (KES 50,000)
+    if (rand < 0.24) matched = 4;
+    else if (rand < 0.50) matched = 5;
+    else if (rand < 0.68) matched = 6;
+    else if (rand < 0.78) matched = 7;
+    else if (rand < 0.82) matched = 8;
+    else if (rand < 0.94) matched = 9;   // 12% chance 9/12 (KES 20,000)
+    else if (rand < 0.99) matched = 10;  // 5% chance 10/12 (KES 30,000)
+    else matched = 11;                    // 1% chance 11/12 (KES 50,000)
   }
 
   return {
