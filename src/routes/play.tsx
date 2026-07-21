@@ -243,6 +243,12 @@ function PlayPage() {
     if (pollTimer.current) clearInterval(pollTimer.current);
   }
 
+  function playAgainAndPay() {
+    resetForNextSpin();
+    setPayStep("phone");
+    setPayOpen(true);
+  }
+
   async function handleCommentSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!commentText.trim() || submittingComment) return;
@@ -538,7 +544,7 @@ function PlayPage() {
       {result ? (
         <>
           <button
-            onClick={resetForNextSpin}
+            onClick={playAgainAndPay}
             className="bg-gold-gradient shadow-gold mt-6 w-full rounded-2xl py-5 font-display text-2xl font-black text-[oklch(0.12_0.01_60)]"
           >
             Play again
