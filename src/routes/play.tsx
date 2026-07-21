@@ -226,11 +226,18 @@ function PlayPage() {
   }
 
   function resetForNextSpin() {
-    setPicks([]);
+    // Generate 12 fresh lucky numbers so the player can spin again immediately
+    const set = new Set<number>();
+    while (set.size < need) set.add(poolMin + Math.floor(Math.random() * (poolMax - poolMin + 1)));
+    setPicks(Array.from(set));
+
     setReveal([]);
     setResult(null);
     setErr(null);
     setRunId(null);
+    setRunning(false);
+    setPayOpen(false);
+    setPayStep(null);
     setStkMsg("");
     setCommentText("");
     setCommentSent(false);
