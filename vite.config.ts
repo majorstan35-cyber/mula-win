@@ -15,5 +15,7 @@ export default defineConfig({
     // nitro/vite builds from this
     server: { entry: "server" },
   },
-  resolve: { tsconfigPaths: true },
+  vite: {
+    resolve: { tsconfigPaths: true },
+  },
 });
