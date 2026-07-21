@@ -315,24 +315,6 @@ function PlayPage() {
           setPayOpen(false);
           setPayStep(null);
           
-          const playerPicks: number[] = s.run.player_numbers?.length ? s.run.player_numbers : picks;
-          // Align matched numbers to their exact position in 'playerPicks'
-          const alignedTarget = new Array(need).fill(undefined);
-          const nonMatched: number[] = [];
-          for (const num of s.target) {
-            const idx = playerPicks.indexOf(num as number);
-            if (idx !== -1 && alignedTarget[idx] === undefined) {
-              alignedTarget[idx] = num;
-            } else {
-              nonMatched.push(num as number);
-            }
-          }
-          for (let i = 0; i < alignedTarget.length; i++) {
-            if (alignedTarget[i] === undefined) {
-              alignedTarget[i] = nonMatched.shift();
-            }
-          }
-
           await animateReveal({
             run: {
               id: s.run.id,
@@ -340,7 +322,7 @@ function PlayPage() {
               matched_count: s.run.matched_count ?? 0,
               prize_kes: s.run.prize_kes ?? 0,
             },
-            target: alignedTarget,
+            target: s.target,
             seedHash: s.seedHash,
             roundNumber: s.roundNumber,
           });

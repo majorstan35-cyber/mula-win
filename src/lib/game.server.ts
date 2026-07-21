@@ -37,24 +37,34 @@ function buildTargetNumbers(
   // Clamp M to valid range
   M = Math.max(0, Math.min(M, picks.length, 12));
 
-  // Choose which M of the player's picks will appear in the target
-  const shuffledPicks = fyShuffle(picks);
-  const matchingNums = shuffledPicks.slice(0, M);
-  const matchingSet = new Set(matchingNums);
-  const picksSet = new Set(picks);
+  // 1. Pick which M index positions of the player's picks will match
+  const indices = Array.from({ length: picks.length }, (_, i) => i);
+  const shuffledIndices = fyShuffle(indices);
+  const matchedIndices = new Set(shuffledIndices.slice(0, M));
 
-  // Build pool of numbers that are NOT in the player's picks
+  // 2. Build pool of numbers that are NOT in the player's picks
+  const picksSet = new Set(picks);
   const nonPickPool: number[] = [];
   for (let i = poolMin; i <= poolMax; i++) {
     if (!picksSet.has(i)) nonPickPool.push(i);
   }
-
-  // Fill remaining 12 - M slots from non-pick pool
   const shuffledNonPick = fyShuffle(nonPickPool);
-  const nonMatchingNums = shuffledNonPick.slice(0, 12 - M);
 
-  // Combine and shuffle final target
-  return fyShuffle([...matchingNums, ...nonMatchingNums]);
+  // 3. Build target array where index i strictly aligns with picks[i]
+  const target: number[] = new Array(picks.length);
+  let nonPickIdx = 0;
+
+  for (let i = 0; i < picks.length; i++) {
+    if (matchedIndices.has(i)) {
+      // Matched: place exact pick at index i (10 at slot 0, 20 at slot 1, etc.)
+      target[i] = picks[i];
+    } else {
+      // Miss: place non-pick number at index i
+      target[i] = shuffledNonPick[nonPickIdx++];
+    }
+  }
+
+  return target;
 }
 
 // --------------------------------------------------------------------------
