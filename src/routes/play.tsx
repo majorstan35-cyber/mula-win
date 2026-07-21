@@ -226,10 +226,8 @@ function PlayPage() {
   }
 
   function resetForNextSpin() {
-    // Generate 12 fresh lucky numbers so the player can spin again immediately
-    const set = new Set<number>();
-    while (set.size < need) set.add(poolMin + Math.floor(Math.random() * (poolMax - poolMin + 1)));
-    setPicks(Array.from(set));
+    // Restore static default lucky numbers starting with 10
+    setPicks([10, 20, 27, 1, 36, 5, 13, 39, 38, 12, 16, 25]);
 
     setReveal([]);
     setResult(null);
