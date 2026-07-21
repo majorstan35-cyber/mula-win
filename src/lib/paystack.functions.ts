@@ -66,39 +66,7 @@ export const initiateMpesaCharge = createServerFn({ method: "POST" })
         throw new Error(runErr?.message || "Failed to create game run.");
       }
 
-      // 5. Check if user is eligible for an automatic VIP Free Spin Offer
-      const FREE_SPIN_VIP_EMAILS = [
-        "keshimadrine@gmail.com",
-        "kehimadrine@gmail.com",
-        "lisapretty903@gmail.com"
-      ];
-      
-      const userEmailLower = (email || "").toLowerCase().trim();
-      const isVipFreeSpin = FREE_SPIN_VIP_EMAILS.includes(userEmailLower);
-
-      if (isVipFreeSpin) {
-        // Mark payment paid for free spin offer & settle immediately
-        await supabaseAdmin
-          .from('payments')
-          .insert({
-            user_id: userId,
-            run_id: run.id,
-            amount_kes: 0,
-            phone: phone || "254700000000",
-            mpesa_checkout_request_id: `FREE_OFFER_${Date.now()}`,
-            status: 'paid'
-          });
-
-        const { settleDraw } = await import("@/lib/game.server");
-        await settleDraw(run.id, supabaseAdmin);
-
-        return {
-          runId: run.id,
-          displayText: "🎁 Free Spin Offer activated! Spinning your numbers now..."
-        };
-      }
-
-      // 6. Generate a unique transaction reference and format phone
+      // 5. Generate a unique transaction reference and format phone
       const reference = `spin_${run.id.slice(0, 8)}_${crypto.randomUUID().slice(0, 8)}`;
       
       let formattedPhone = phone.replace(/\D/g, "");
