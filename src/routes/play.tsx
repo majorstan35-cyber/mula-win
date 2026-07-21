@@ -25,33 +25,34 @@ const CITIES = [
   "Ruiru", "Kiambu", "Athi River", "Nanyuki", "Kajiado", "Migori", "Homa Bay", "Busia",
 ];
 
-let nextWinAllowedTime = 0;
-let winBurstCount = 0;
-
 function generateOrganicMessage(matched: number): string {
   if (matched === 9) {
     const phrases = [
-      "won after playing 5 times",
-      "M-Pesa 20k confirmed, thank you!",
-      "finally got 9/12 on my 4th try today",
-      "almost hit 10, got 9/12 instead",
-      "just got 20,000 on my 3rd spin",
-      "na mpaka 4th attempt ndio nimepata 9/12",
-      "20k in my M-Pesa right now",
-      "nimejaribu mara 3 hatimaye 9/12",
-      "M-Pesa alert received, KES 20,000!"
+      "manze stay guided, 20k confirmed! 💸",
+      "Acoro stay guided! 20k inside M-Pesa 🥳",
+      "Omera 20k drop kwa M-Pesa! 🔥",
+      "won KES 20,000 after 5 spins! 💸",
+      "Kai! Nimepata 9/12 mara ya 4 🍀",
+      "Ero kamano! 9/12 matched 🥳",
+      "chapaa imeingia M-Pesa 20,000! 🚀",
+      "nimepata 9/12 kwa spin ya 4 🔥",
+      "stay guided, 20k payout confirmed! 💥",
+      "finally 9/12 on 3rd try today ✨",
+      "Wira ni wira, 20k inside! 💸",
+      "Adier 20,000 cash out! 🍀"
     ];
     return phrases[Math.floor(Math.random() * phrases.length)];
   }
 
   if (matched === 10) {
     const phrases = [
-      "wueh 10/12 payout received",
-      "matched 10/12! 30k in the bank",
-      "won 30,000 on my 6th spin today",
-      "M-Pesa credited KES 30,000",
-      "manze 30k confirmed!",
-      "missed jackpot by only 2 numbers, got 30k"
+      "Ngai fafa 30k imeingia M-Pesa! 🥳",
+      "wueh 10/12 payout received! 🔥",
+      "Omera 30,000 cash out! 💸",
+      "matched 10/12! 30k in the bank 🚀",
+      "stay guided, 30k M-Pesa alert! 💥",
+      "missed 1M by only 2 numbers, got 30k! 🍀",
+      "Kai 30k confirmed kwa spin ya 6! 🥳"
     ];
     return phrases[Math.floor(Math.random() * phrases.length)];
   }
@@ -59,53 +60,53 @@ function generateOrganicMessage(matched: number): string {
   if (matched === 11) {
     const phrases = [
       "so close to 1M! Got KES 50,000 payout 🔥",
-      "50k received via M-Pesa!",
-      "matched 11/12 on my 8th spin today",
-      "M-Pesa alert KES 50,000 confirmed"
+      "Ngai! 50k received via M-Pesa! 🥳",
+      "Ber ahinya! 50,000 on 8th spin 🚀",
+      "M-Pesa alert KES 50,000 confirmed! 💸"
     ];
     return phrases[Math.floor(Math.random() * phrases.length)];
   }
 
   if (matched >= 12) {
-    return "GRAND JACKPOT WINNER! KES 1,000,000!";
+    return "🏆 GRAND JACKPOT WINNER! KES 1,000,000! 👑";
   }
 
-  // Non-winning natural organic messages (no forced emojis, clean human tone)
+  // Non-winning natural organic messages with Kikuyu, Luo, Sheng & English
   if (matched === 8) {
     const phrases = [
-      "missed by 2 numbers",
-      "almost got 9/12, 8 matched",
+      "ayaya missed by 2 numbers 😭",
+      "Acoro stay guided, 8 matched 🤞",
+      "Omera so close, 8/12 today 🔥",
+      "almost got 9/12, 8 matched 🍀",
       "2nd try today, 8/12 matched",
-      "so close, 8/12",
-      "remained with 4 only",
-      "warm up spin done, 8 matched",
-      "ayaya missed by two"
+      "Kai! Remained with 4 only 😤",
+      "warm up spin done, 8 matched ✨"
     ];
     return phrases[Math.floor(Math.random() * phrases.length)];
   }
 
   if (matched === 7 || matched === 6) {
     const phrases = [
-      "getting closer",
-      "3rd attempt today got 7/12",
-      "feeling lucky, let me spin again",
-      "almost got half",
-      "chapaa inakuja soon",
-      "not bad, let's keep pushing",
-      "one more spin manze",
-      "trust the process"
+      "getting closer, stay guided 🚀",
+      "3rd attempt today got 7/12 🤞",
+      "feeling lucky, let me spin again 🍀",
+      "Wi muogi, 7/12 today 🔥",
+      "ber ahinya, next spin loading ✨",
+      "chapaa inakuja soon, 6 matched",
+      "not bad, let's keep pushing 💸",
+      "one more spin manze 👊"
     ];
     return phrases[Math.floor(Math.random() * phrases.length)];
   }
 
   // 4 or 5 matched
   const phrases = [
-    "we try again",
-    "bahati mbaya, next one",
-    "ah just missed it",
-    "nakuja tena",
-    "process continues",
-    "playing again now"
+    "we try again omera 🤞",
+    "bahati mbaya, next one 🔥",
+    "Acoro process continues ✨",
+    "ah just missed it 😭",
+    "nakuja tena kwa spin 🚀",
+    "stay guided, playing again now 🍀"
   ];
   return phrases[Math.floor(Math.random() * phrases.length)];
 }
@@ -118,36 +119,16 @@ function randomFeedItem(id: number, secondsAgo = 0, forceWin?: number): FeedItem
   if (forceWin !== undefined) {
     matched = forceWin;
   } else {
-    const now = Date.now();
-    let canWin = false;
-
-    if (now >= nextWinAllowedTime) {
-      canWin = true;
-      winBurstCount++;
-      if (winBurstCount === 1) {
-        // 1st win in burst -> next win allowed in 1 to 3 minutes (60s to 180s)
-        nextWinAllowedTime = now + (60 + Math.floor(Math.random() * 120)) * 1000;
-      } else {
-        // 2nd win in burst -> long quiet gap of 10 to 12 minutes (600s to 720s)
-        winBurstCount = 0;
-        nextWinAllowedTime = now + (600 + Math.floor(Math.random() * 120)) * 1000;
-      }
-    }
-
-    if (canWin) {
-      const winRand = Math.random();
-      if (winRand < 0.72) matched = 9;      // 72% of wins: 9/12 (KES 20k)
-      else if (winRand < 0.96) matched = 10; // 24% of wins: 10/12 (KES 30k)
-      else matched = 11;                  // 4% of wins: 11/12 (KES 50k) - ultra rare!
-    } else {
-      // Normal non-winning distribution
-      const rand = Math.random();
-      if (rand < 0.30) matched = 4;
-      else if (rand < 0.60) matched = 5;
-      else if (rand < 0.82) matched = 6;
-      else if (rand < 0.94) matched = 7;
-      else matched = 8;
-    }
+    // Catchy, balanced random selection for wins & non-wins
+    const rand = Math.random();
+    if (rand < 0.28) matched = 4;
+    else if (rand < 0.56) matched = 5;
+    else if (rand < 0.78) matched = 6;
+    else if (rand < 0.91) matched = 7;
+    else if (rand < 0.95) matched = 8;
+    else if (rand < 0.984) matched = 9;   // ~3.4% chance 9/12 (KES 20,000)
+    else if (rand < 0.996) matched = 10;  // ~1.2% chance 10/12 (KES 30,000)
+    else matched = 11;                     // ~0.4% chance 11/12 (KES 50,000)
   }
 
   return {
