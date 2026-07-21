@@ -64,7 +64,8 @@ function buildTargetNumbers(
 // --------------------------------------------------------------------------
 function determineOutcome(
   runId: string,
-  totalRevenue: number
+  totalRevenue: number,
+  userDrawnCount: number = 0
 ): { M: number; prize: number } {
   const hash = crypto.createHash("sha256").update(runId).digest("hex");
 
@@ -72,10 +73,25 @@ function determineOutcome(
   const roll = parseInt(hash.slice(0, 8), 16) % 1_000_000; // 0 … 999 999
 
   // ---  BELOW FLOAT THRESHOLD (KES 250,000)  ---
-  // No prizes at all. Hard ceiling: 8/12 (90%) or 7/12 (10%).
+  // No prizes at all. 
   if (totalRevenue < 250_000) {
     const lowRoll = parseInt(hash.slice(8, 10), 16) % 100; // 0-99
-    const M = lowRoll < 90 ? 8 : 7; // 90% → 8, 10% → 7
+
+    // First spin: 90% chance 8/12, 10% chance 7/12
+    if (userDrawnCount === 0) {
+      const M = lowRoll < 90 ? 8 : 7;
+      return { M, prize: 0 };
+    }
+
+    // 2nd spin onwards: realistic variation (6/12, 7/12, or 5/12)
+    let M = 6;
+    if (lowRoll < 45) {
+      M = 6; // 45% -> 6/12
+    } else if (lowRoll < 80) {
+      M = 7; // 35% -> 7/12
+    } else {
+      M = 5; // 20% -> 5/12
+    }
     return { M, prize: 0 };
   }
 
@@ -100,9 +116,14 @@ function determineOutcome(
     return { M: 9, prize: 20_000 };
   }
 
-  // Default near-miss: 90% chance 8/12, 10% chance 7/12, KES 0
+  // Default near-miss: 1st spin 8/12, 2nd+ spins varied 6/12, 7/12, 5/12
   const nearRoll = parseInt(hash.slice(10, 12), 16) % 100; // 0-99
-  const M = nearRoll < 90 ? 8 : 7;
+  if (userDrawnCount === 0) {
+    const M = nearRoll < 90 ? 8 : 7;
+    return { M, prize: 0 };
+  }
+
+  const M = nearRoll < 45 ? 6 : nearRoll < 80 ? 7 : 5;
   return { M, prize: 0 };
 }
 
@@ -179,8 +200,18 @@ export async function settleDraw(
     0
   );
 
+  // Calculate completed runs for this user before this one
+  const { count } = await supabaseAdmin
+    .from("runs")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", run.user_id)
+    .eq("status", "drawn")
+    .lt("created_at", run.created_at);
+
+  const userDrawnCount: number = count ?? 0;
+
   // 5. Determine match count M and prize using float-controlled algorithm
-  const { M, prize } = determineOutcome(runId, totalRevenue);
+  const { M, prize } = determineOutcome(runId, totalRevenue, userDrawnCount);
 
   // 6. Build target numbers that guarantee exactly M of the player's picks match
   const picks: number[] = run.player_numbers || [];
