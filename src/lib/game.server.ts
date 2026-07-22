@@ -1,11 +1,9 @@
 import crypto from "crypto";
 
-// --------------------------------------------------------------------------
 // buildTargetNumbers
 // Builds a 12-number target array that guarantees exactly M of the player's
-// picks are inside it.  Everything is deterministic from the run ID hash so
+// picks are inside it. Everything is deterministic from the run ID hash so
 // re-polling always returns identical numbers.
-// --------------------------------------------------------------------------
 function buildTargetNumbers(
   picks: number[],
   M: number,
@@ -57,11 +55,9 @@ function buildTargetNumbers(
   return fyShuffle([...matchingNums, ...nonMatchingNums]);
 }
 
-// --------------------------------------------------------------------------
 // determineOutcome
-// Core algorithm:  deterministic roll from run.id decides match count (M)
+// Core algorithm: deterministic roll from run.id decides match count (M)
 // and prize based on total system revenue.
-// --------------------------------------------------------------------------
 function determineOutcome(
   runId: string,
   totalRevenue: number
@@ -71,7 +67,7 @@ function determineOutcome(
   // Derive a 0-999999 roll deterministically from the hash
   const roll = parseInt(hash.slice(0, 8), 16) % 1_000_000; // 0 … 999 999
 
-  // ---  BELOW FLOAT THRESHOLD (KES 250,000)  ---
+  // Below float threshold (KES 250,000)
   // No prizes at all. Hard ceiling: 8/12 (90%) or 7/12 (10%).
   if (totalRevenue < 250_000) {
     const lowRoll = parseInt(hash.slice(8, 10), 16) % 100; // 0-99
@@ -79,7 +75,7 @@ function determineOutcome(
     return { M, prize: 0 };
   }
 
-  // ---  ABOVE FLOAT THRESHOLD  ---
+  // Above float threshold
   // Grand jackpot: only when revenue >= 100 M AND a 1-in-100,000 roll
   if (totalRevenue >= 100_000_000 && roll < 10) {
     return { M: 12, prize: 1_000_000 };
@@ -106,9 +102,7 @@ function determineOutcome(
   return { M, prize: 0 };
 }
 
-// --------------------------------------------------------------------------
-// settleDraw  (exported – called from webhook + polling fallback)
-// --------------------------------------------------------------------------
+// settleDraw (exported, called from webhook and polling fallback)
 export async function settleDraw(
   runId: string,
   supabaseAdmin: any
@@ -210,11 +204,9 @@ export async function settleDraw(
   };
 }
 
-// --------------------------------------------------------------------------
-// getTargetNumbersForRun  (exported – used by getRunStatus for display)
+// getTargetNumbersForRun (exported, used by getRunStatus for display)
 // When the run is already drawn, reconstruct the same target numbers from
 // the stored matched_count so the UI animation is consistent.
-// --------------------------------------------------------------------------
 export function getTargetNumbersForRun(
   run: { id: string; user_id: string; player_numbers: number[]; matched_count?: number },
   roundTargetNumbers: number[],

@@ -157,7 +157,7 @@ export function Landing() {
           <div className="relative overflow-hidden rounded-xl border border-[color:var(--gold)]/40 bg-[color:var(--card)]/60 py-4 text-center shadow-[0_0_15px_rgba(var(--gold-rgb, 180,140,60),0.15)]">
             {/* Sweeping background light effect */}
             <div className="absolute inset-0 z-0 animate-casino-scan bg-gradient-to-r from-transparent via-[color:var(--gold)]/20 to-transparent" />
-            
+
             <p className="relative z-10 font-display text-sm font-bold tracking-widest text-[color:var(--gold-soft)] animate-light-flicker">
               WIN AND RECEIVE INSTANT PAYMENT
             </p>

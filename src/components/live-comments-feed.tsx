@@ -12,7 +12,7 @@ export type StreamItem = {
   isWin: boolean;
 };
 
-// Fisher-Yates shuffle — ensures no repeating patterns
+// Fisher-Yates shuffle, ensures no repeating patterns
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
   for (let i = a.length - 1; i > 0; i--) {
@@ -22,7 +22,7 @@ function shuffle<T>(arr: T[]): T[] {
   return a;
 }
 
-// ─── 9/12 = KES 20,000 ────────────────────────────────────────────────────────
+// 9/12 winners = KES 20,000
 const POOL_20K = [
   { text: "Ero omera! 20k landed straight on Mpesa, sijui kucheza tena 😭🙌", lang: "Jaluo / Kisumu" },
   { text: "Buda si unajua? Alert ya 20,000 imetoka hata sijapumzika 😂📱", lang: "Sheng / Nairobi" },
@@ -56,7 +56,7 @@ const POOL_20K = [
   { text: "Wakinywa chai Kericho — mimi niko na 20k Mpesa tayari 🍵😂", lang: "Kalenjin / Kericho" },
 ];
 
-// ─── 10/12 = KES 25,000 ───────────────────────────────────────────────────────
+// 10/12 winners = KES 25,000
 const POOL_25K = [
   { text: "Omwabo sana! 25,000 credited — Nyamira power imethibitishwa 🤑💃", lang: "Kisii / Nyamira" },
   { text: "Manze buda, simu imepiga 25k — Thika boys tuko juu 📱🔥", lang: "Sheng / Thika" },
@@ -90,7 +90,7 @@ const POOL_25K = [
   { text: "Hata nilipigia mama simu — 25k credited Nakuru! 😭🙏", lang: "Nakuru Player" },
 ];
 
-// ─── 11/12 = KES 50,000 ───────────────────────────────────────────────────────
+// 11/12 winners = KES 50,000
 const POOL_50K = [
   { text: "EEEEEH! 50,000 credited — Wairimu wa Kiambu hataamini! 💎🚀😭", lang: "Kikuyu / Kiambu" },
   { text: "Omwabo wa miaka yote! 50k Siaya — Wuod Baba ameshinda leo! 🎊🥇", lang: "Jaluo / Siaya" },
@@ -121,7 +121,7 @@ const POOL_50K = [
   { text: "Eeeh Chesire wa Iten — umeshinda 50k, hata mbio za Leo hazina maana 🏃🥇💸", lang: "Kalenjin / Iten" },
 ];
 
-// ─── Non-win messages (large varied pool) ─────────────────────────────────────
+// Non-win messages (large varied pool)
 const POOL_NONWIN = [
   "Missed by 3 but iko karibu — spinning again saa hii 🔁",
   "Warm up tu buda, next one ni yangu 💪",
@@ -152,7 +152,7 @@ const CITIES = [
   "Bungoma", "Malindi", "Voi", "Kajiado", "Migori", "Busia", "Athi River",
 ];
 
-// Generates an organic stream with shuffle — no repeating pattern
+// Generates an organic stream with shuffle, no repeating pattern
 export function generateOrganicStream(count = 25): StreamItem[] {
   const list: StreamItem[] = [];
   const prefixes = [

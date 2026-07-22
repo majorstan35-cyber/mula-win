@@ -1,151 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-// Reconcile pending payments against Paystack API
-export const reconcilePendingPayments = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .handler(async () => {
-    try {
-      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-      const secretKey = process.env.PAYSTACK_SECRET_KEY || process.env.STRIPE_LIVE_API_KEY;
-
-      const { data: pendingList } = await supabaseAdmin
-        .from("payments")
-        .select("id, run_id, mpesa_checkout_request_id, created_at")
-        .eq("status", "pending");
-
-      if (!pendingList || pendingList.length === 0) {
-        return { reconciled: 0, settled: 0, failed: 0, cancelled: 0 };
-      }
-
-      let settledCount = 0;
-      let failedCount = 0;
-      let cancelledCount = 0;
-
-      for (const p of pendingList as any[]) {
-        if (!p.mpesa_checkout_request_id) {
-          await supabaseAdmin.from("payments").update({ status: "cancelled" }).eq("id", p.id);
-          if (p.run_id) await supabaseAdmin.from("runs").update({ status: "failed" }).eq("id", p.run_id);
-          cancelledCount++;
-          continue;
-        }
-
-        try {
-          const res = await fetch(`https://api.paystack.co/transaction/verify/${p.mpesa_checkout_request_id}`, {
-            headers: { Authorization: `Bearer ${secretKey}` }
-          });
-          const payload = await res.json();
-          const pStatus = payload?.data?.status;
-
-          if (pStatus === "success") {
-            const mpesaReceipt =
-              payload?.data?.authorization?.receiver_bank_account_number ||
-              payload?.data?.mobile_money?.receipt ||
-              p.mpesa_checkout_request_id;
-
-            await supabaseAdmin
-              .from("payments")
-              .update({ status: "paid", mpesa_receipt: mpesaReceipt, raw_callback: payload })
-              .eq("id", p.id);
-
-            if (p.run_id) {
-              const { settleDraw } = await import("@/lib/game.server");
-              await settleDraw(p.run_id, supabaseAdmin);
-            }
-            settledCount++;
-            console.log(`[Reconcile] Pending payment ${p.id} settled as PAID!`);
-          } else if (pStatus === "failed") {
-            await supabaseAdmin.from("payments").update({ status: "failed", raw_callback: payload }).eq("id", p.id);
-            if (p.run_id) await supabaseAdmin.from("runs").update({ status: "failed" }).eq("id", p.run_id);
-            failedCount++;
-          } else {
-            const ageMins = (Date.now() - new Date(p.created_at).getTime()) / 60000;
-            if (pStatus === "abandoned" || ageMins > 5) {
-              await supabaseAdmin.from("payments").update({ status: "cancelled", raw_callback: payload }).eq("id", p.id);
-              if (p.run_id) await supabaseAdmin.from("runs").update({ status: "failed" }).eq("id", p.run_id);
-              cancelledCount++;
-            }
-          }
-        } catch (err: any) {
-          const ageMins = (Date.now() - new Date(p.created_at).getTime()) / 60000;
-          if (ageMins > 5) {
-            await supabaseAdmin.from("payments").update({ status: "cancelled" }).eq("id", p.id);
-            if (p.run_id) await supabaseAdmin.from("runs").update({ status: "failed" }).eq("id", p.run_id);
-            cancelledCount++;
-          }
-        }
-      }
-
-      return { reconciled: pendingList.length, settled: settledCount, failed: failedCount, cancelled: cancelledCount };
-    } catch (err: any) {
-      console.error("reconcilePendingPayments error:", err.message);
-      throw err;
-    }
-  });
-
 // Fetch admin dashboard overview metrics + user comments
 export const adminOverview = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async () => {
     try {
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-
-      // Auto-reconcile old pendings before computing metrics
-      try {
-        const secretKey = process.env.PAYSTACK_SECRET_KEY || process.env.STRIPE_LIVE_API_KEY;
-        const { data: oldPendings } = await supabaseAdmin
-          .from("payments")
-          .select("id, run_id, mpesa_checkout_request_id, created_at")
-          .eq("status", "pending");
-
-        if (oldPendings && oldPendings.length > 0) {
-          for (const p of oldPendings as any[]) {
-            const ageMins = (Date.now() - new Date(p.created_at).getTime()) / 60000;
-            if (p.mpesa_checkout_request_id) {
-              try {
-                const res = await fetch(`https://api.paystack.co/transaction/verify/${p.mpesa_checkout_request_id}`, {
-                  headers: { Authorization: `Bearer ${secretKey}` }
-                });
-                const payload = await res.json();
-                const pStatus = payload?.data?.status;
-
-                if (pStatus === "success") {
-                  const mpesaReceipt =
-                    payload?.data?.authorization?.receiver_bank_account_number ||
-                    payload?.data?.mobile_money?.receipt ||
-                    p.mpesa_checkout_request_id;
-
-                  await supabaseAdmin
-                    .from("payments")
-                    .update({ status: "paid", mpesa_receipt: mpesaReceipt, raw_callback: payload })
-                    .eq("id", p.id);
-
-                  if (p.run_id) {
-                    const { settleDraw } = await import("@/lib/game.server");
-                    await settleDraw(p.run_id, supabaseAdmin);
-                  }
-                } else if (pStatus === "failed") {
-                  await supabaseAdmin.from("payments").update({ status: "failed", raw_callback: payload }).eq("id", p.id);
-                  if (p.run_id) await supabaseAdmin.from("runs").update({ status: "failed" }).eq("id", p.run_id);
-                } else if (pStatus === "abandoned" || ageMins > 5) {
-                  await supabaseAdmin.from("payments").update({ status: "cancelled", raw_callback: payload }).eq("id", p.id);
-                  if (p.run_id) await supabaseAdmin.from("runs").update({ status: "failed" }).eq("id", p.run_id);
-                }
-              } catch (e) {
-                if (ageMins > 5) {
-                  await supabaseAdmin.from("payments").update({ status: "cancelled" }).eq("id", p.id);
-                  if (p.run_id) await supabaseAdmin.from("runs").update({ status: "failed" }).eq("id", p.run_id);
-                }
-              }
-            } else {
-              await supabaseAdmin.from("payments").update({ status: "cancelled" }).eq("id", p.id);
-              if (p.run_id) await supabaseAdmin.from("runs").update({ status: "failed" }).eq("id", p.run_id);
-            }
-          }
-        }
-      } catch (recErr: any) {
-        console.warn("Auto reconciliation warning:", recErr.message);
-      }
 
       // 1. Config
       const { data: config } = await supabaseAdmin
@@ -154,26 +15,21 @@ export const adminOverview = createServerFn({ method: "GET" })
         .eq("active", true)
         .maybeSingle();
 
-      // 2. Fetch ALL paid payments for total revenue calculation without limit
-      const { data: allPaidPayments } = await supabaseAdmin
-        .from("payments")
-        .select("amount_kes")
-        .eq("status", "paid");
-
-      const totalRevenue = (allPaidPayments ?? []).reduce((acc: number, p: any) => acc + (p.amount_kes ?? 0), 0);
-      const totalPaidCount = allPaidPayments?.length ?? 0;
-
-      // Fetch recent payments for table display (up to 500)
+      // 2. All payments (all statuses)
       const { data: allPayments } = await supabaseAdmin
         .from("payments")
         .select("id, amount_kes, status, phone, created_at, mpesa_checkout_request_id, run_id, user_id, mpesa_receipt")
         .order("created_at", { ascending: false })
-        .limit(500);
+        .limit(200);
 
       const paid = (allPayments ?? []).filter((p: any) => p.status === "paid");
       const failed = (allPayments ?? []).filter((p: any) => p.status === "failed");
       const pending = (allPayments ?? []).filter((p: any) => p.status === "pending");
       const cancelled = (allPayments ?? []).filter((p: any) => p.status === "cancelled");
+
+      const totalRevenue = paid.reduce((acc: number, p: any) => acc + (p.amount_kes ?? 0), 0);
+      const failedAttempts = failed.length + cancelled.length;
+      const pendingCount = pending.length;
 
       // 3. Runs - all statuses
       const { data: allRuns } = await supabaseAdmin
@@ -253,13 +109,11 @@ export const adminOverview = createServerFn({ method: "GET" })
       return {
         metrics: {
           totalRevenue,
-          totalPaidCount,
           totalPayouts,
           netMargin,
           runCount: drawnRuns.length,
-          failedCount: failed.length,
-          cancelledCount: cancelled.length,
-          pendingCount: pending.length,
+          failedAttempts,
+          pendingCount,
           totalSpins: (allRuns ?? []).length,
           failedRuns: failedRuns.length,
         },
@@ -281,11 +135,12 @@ export const adminOverview = createServerFn({ method: "GET" })
         recentRuns: allRuns ?? [],
         comments,
         auditLog,
+        // Payment breakdown by status
         payments: {
-          paid,
-          failed,
-          pending,
-          cancelled,
+          paid: paid.slice(0, 100),
+          failed: failed.slice(0, 100),
+          pending: pending.slice(0, 50),
+          cancelled: cancelled.slice(0, 100),
         },
       };
     } catch (err: any) {
@@ -338,7 +193,7 @@ export const setUserBlocked = createServerFn({ method: "POST" })
     }
   });
 
-// Manually mark a pending payment as cancelled (admin override)
+// Manually mark a pending payment as failed (admin override)
 export const markPaymentFailed = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((data: { paymentId: string; runId?: string }) => data)
@@ -348,7 +203,7 @@ export const markPaymentFailed = createServerFn({ method: "POST" })
 
       await supabaseAdmin
         .from("payments")
-        .update({ status: "cancelled" })
+        .update({ status: "failed" })
         .eq("id", data.paymentId);
 
       if (data.runId) {
