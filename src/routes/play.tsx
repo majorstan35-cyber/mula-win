@@ -770,20 +770,6 @@ function PlayPage() {
                   {stkMsg || "Enter your M-Pesa PIN to confirm KES 200."}
                 </p>
                 <p className="mt-1 text-xs font-semibold text-[color:var(--gold)]">Sent to: {phone}</p>
-
-                {checkoutUrl && (
-                  <div className="mt-4">
-                    <a
-                      href={checkoutUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center justify-center gap-2 w-full rounded-xl bg-emerald-500/20 border border-emerald-500/50 px-4 py-3 font-display text-xs font-bold text-emerald-400 hover:bg-emerald-500/30 transition shadow-lg"
-                    >
-                      <span>👉</span> Click here to Pay via M-Pesa Checkout Directly
-                    </a>
-                  </div>
-                )}
-
                 <p className="mt-4 text-[10px] text-[color:var(--muted-foreground)]">
                   Waiting for M-Pesa confirmation… spinning automatically once paid.
                 </p>

@@ -128,35 +128,9 @@ export const initiateMpesaCharge = createServerFn({ method: "POST" })
         console.error("Failed to insert payment record:", payErr.message);
       }
 
-      // 8. Generate fallback checkout URL via Paystack initialize endpoint
-      let checkoutUrl: string | null = null;
-      try {
-        const initRes = await fetch("https://api.paystack.co/transaction/initialize", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${paystackSecret}`,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            email: email,
-            amount: config.ticket_price_kes * 100,
-            currency: "KES",
-            reference: reference,
-            channels: ["mobile_money"]
-          })
-        });
-        const initData = await initRes.json();
-        if (initData.status && initData.data?.authorization_url) {
-          checkoutUrl = initData.data.authorization_url;
-        }
-      } catch (e) {
-        console.warn("Could not generate fallback checkoutUrl:", e);
-      }
-
       return {
         runId: run.id,
-        displayText: chargePayload.data?.display_text || "Please enter your M-Pesa PIN on your phone to complete payment.",
-        checkoutUrl: checkoutUrl
+        displayText: "Please check your phone and enter your M-Pesa PIN to complete the KES 200 payment."
       };
 
     } catch (err: any) {
