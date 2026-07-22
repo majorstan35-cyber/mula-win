@@ -264,7 +264,15 @@ function PlayPage() {
   const [phoneLoaded, setPhoneLoaded] = useState(false);
   const [stkMsg, setStkMsg] = useState<string>("");
   const [runId, setRunId] = useState<string | null>(null);
+  const [spinCount, setSpinCount] = useState(0);
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Auto-incrementing price: 1st=200, 2nd=201, 3rd=203, 4th=205...
+  const currentPrice = useMemo(() => {
+    if (spinCount === 0) return 200;
+    if (spinCount === 1) return 201;
+    return 200 + (spinCount * 2 - 1);
+  }, [spinCount]);
 
   // Pre-fill phone from user profile
   useEffect(() => {
@@ -344,7 +352,6 @@ function PlayPage() {
   }
 
   function resetForNextSpin() {
-    setPicks([]);
     setReveal([]);
     setResult(null);
     setErr(null);
@@ -353,43 +360,76 @@ function PlayPage() {
     if (pollTimer.current) clearInterval(pollTimer.current);
   }
 
+  async function handlePlayAgain() {
+    setReveal([]);
+    setResult(null);
+    setErr(null);
+    setRunId(null);
+    setStkMsg("");
+    if (pollTimer.current) clearInterval(pollTimer.current);
+
+    // Auto link: directly fire STK push for next round using stored phone number
+    const targetPhone = phone || (user as any)?.phone || "";
+    if (targetPhone && targetPhone.replace(/\D/g, "").length >= 9) {
+      setPayStep("stk");
+      setPayOpen(true);
+      submitPhone(targetPhone);
+    } else {
+      setPayStep("phone");
+      setPayOpen(true);
+    }
+  }
+
   function openPay() {
     if (!ready) {
       setErr(`Pick ${need - picks.length} more number${need - picks.length === 1 ? "" : "s"}`);
       return;
     }
     setErr(null);
-    setPayStep("phone");
-    setPayOpen(true);
+    const targetPhone = phone || (user as any)?.phone || "";
+    if (targetPhone && targetPhone.replace(/\D/g, "").length >= 9) {
+      submitPhone(targetPhone);
+    } else {
+      setPayStep("phone");
+      setPayOpen(true);
+    }
   }
 
-  async function submitPhone() {
-    // Validate phone before sending
-    const digits = phone.replace(/\D/g, "");
+  async function submitPhone(overridePhone?: string) {
+    const rawPhone = overridePhone || phone;
+    const digits = rawPhone.replace(/\D/g, "");
     let normalized = digits;
     if (normalized.startsWith("0")) normalized = "254" + normalized.slice(1);
     else if (normalized.startsWith("7") || normalized.startsWith("1")) normalized = "254" + normalized;
     else if (normalized.startsWith("254")) { /* ok */ }
     else {
       setErr("Enter a valid Kenyan M-Pesa number (e.g. 0712 345 678)");
+      setPayStep("phone");
+      setPayOpen(true);
       return;
     }
     if (normalized.length !== 12) {
       setErr("Phone number must be 12 digits (e.g. 0712 345 678)");
+      setPayStep("phone");
+      setPayOpen(true);
       return;
     }
     setErr(null);
-    setStkMsg("");
+    setStkMsg(`Sending M-Pesa prompt for KES ${currentPrice}…`);
     setRunning(true);
+    setPayOpen(true);
+    setPayStep("stk");
+
     try {
-      const res = await startCharge({ data: { picks, phone } });
+      const res = await startCharge({ data: { picks, phone: rawPhone } });
       setRunId(res.runId);
-      setStkMsg(res.displayText);
-      setPayStep("stk");
+      const serverPrice = (res as any).amountKes || currentPrice;
+      setStkMsg(res.displayText || `Check your phone! Enter your M-Pesa PIN to complete KES ${serverPrice} payment.`);
       startPolling(res.runId);
     } catch (e: any) {
       setErr(e.message ?? "Could not start payment");
       setRunning(false);
+      setPayStep("phone");
     }
   }
 
@@ -459,6 +499,7 @@ function PlayPage() {
     await new Promise((res) => setTimeout(res, 400));
     setResult(r);
     setRunning(false);
+    setSpinCount((prev) => prev + 1);
   }
 
 
@@ -624,21 +665,22 @@ function PlayPage() {
 
       {result ? (
         <button
-          onClick={resetForNextSpin}
-          className="bg-gold-gradient shadow-gold mt-6 w-full rounded-2xl py-5 font-display text-2xl font-black text-[oklch(0.12_0.01_60)]"
+          onClick={handlePlayAgain}
+          disabled={running}
+          className="bg-gold-gradient shadow-gold mt-6 w-full rounded-2xl py-5 font-display text-2xl font-black text-[oklch(0.12_0.01_60)] transition active:scale-95 flex items-center justify-center gap-2"
         >
-          Play again
+          <span>🔄 Play again — KES {currentPrice}</span>
         </button>
       ) : (
         <button
           onClick={openPay}
           disabled={running || !ready}
           className={`mt-6 w-full rounded-2xl py-5 font-display text-2xl font-black transition ${ready && !running
-            ? "animate-gold-pulse bg-gold-gradient shadow-gold text-[oklch(0.12_0.01_60)]"
+            ? "animate-gold-pulse bg-gold-gradient shadow-gold text-[oklch(0.12_0.01_60)] active:scale-95"
             : "bg-[color:var(--card)] text-[color:var(--muted-foreground)] border border-[color:var(--border)]"
             }`}
         >
-          {running ? "Drawing…" : "SPIN & WIN — KES 200"}
+          {running ? "Drawing…" : `SPIN & WIN — KES ${currentPrice}`}
         </button>
       )}
 
@@ -689,7 +731,7 @@ function PlayPage() {
             {payStep === "phone" && (
               <>
                 <div className="flex items-center justify-between">
-                  <h2 className="font-display text-xl font-bold">Pay KES 200 via M-Pesa</h2>
+                  <h2 className="font-display text-xl font-bold">Pay KES {currentPrice} via M-Pesa</h2>
                   <button
                     onClick={() => {
                       setPayOpen(false);
@@ -729,7 +771,7 @@ function PlayPage() {
                 </p>
 
                 <button
-                  onClick={submitPhone}
+                  onClick={() => submitPhone()}
                   disabled={running || phone.replace(/\D/g, "").length < 9}
                   className="mt-5 w-full rounded-2xl bg-gold-gradient py-4 font-display text-xl font-black text-[oklch(0.12_0.01_60)] shadow-gold disabled:opacity-50 transition active:scale-95"
                 >
@@ -751,7 +793,7 @@ function PlayPage() {
                 <div className="mx-auto h-14 w-14 animate-spin rounded-full border-2 border-[color:var(--gold)] border-t-transparent" />
                 <p className="mt-5 font-display text-xl font-bold">Check your phone 📱</p>
                 <p className="mt-2 px-2 text-sm text-[color:var(--muted-foreground)]">
-                  {stkMsg || "Enter your M-Pesa PIN to confirm KES 200."}
+                  {stkMsg || `Enter your M-Pesa PIN to confirm KES ${currentPrice}.`}
                 </p>
                 <p className="mt-1 text-xs font-semibold text-[color:var(--gold)]">Sent to: {phone}</p>
                 <p className="mt-4 text-[10px] text-[color:var(--muted-foreground)]">

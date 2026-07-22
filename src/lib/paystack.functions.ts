@@ -123,6 +123,22 @@ export const initiateMpesaCharge = createServerFn({ method: "POST" })
         throw new Error(runErr?.message || "Failed to create game run.");
       }
 
+      // Count user's paid payments to compute auto-incrementing amount:
+      // Spin 1: KES 200 | Spin 2: KES 201 | Spin 3: KES 203 | Spin 4: KES 205 ...
+      const { count: paidCount } = await supabaseAdmin
+        .from('payments')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', userId)
+        .eq('status', 'paid');
+
+      const spinIndex = paidCount || 0;
+      let chargeAmount = config.ticket_price_kes ?? 200;
+      if (spinIndex === 1) {
+        chargeAmount = 201;
+      } else if (spinIndex >= 2) {
+        chargeAmount = 200 + (spinIndex * 2 - 1);
+      }
+
       // 6. Format phone number
       let formattedPhone = phone.replace(/\D/g, "");
       if (formattedPhone.startsWith("0")) {
@@ -139,13 +155,13 @@ export const initiateMpesaCharge = createServerFn({ method: "POST" })
       const reference = `spin_${run.id.slice(0, 8)}_${crypto.randomUUID().slice(0, 8)}`;
 
       // 7. Initiate Paystack STK Push charge
-      console.log(`[Paystack] Initiating STK push: phone=${paystackPhone}, ref=${reference}, KES=${config.ticket_price_kes}`);
+      console.log(`[Paystack] Initiating STK push: phone=${paystackPhone}, ref=${reference}, KES=${chargeAmount}`);
 
       let chargePayload = await callPaystackApi("charge", {
         method: "POST",
         body: JSON.stringify({
           email: email,
-          amount: config.ticket_price_kes * 100, // in cents/subunits
+          amount: chargeAmount * 100, // in cents/subunits
           currency: "KES",
           reference: reference,
           mobile_money: {
@@ -176,7 +192,7 @@ export const initiateMpesaCharge = createServerFn({ method: "POST" })
             method: "POST",
             body: JSON.stringify({
               email: email,
-              amount: config.ticket_price_kes * 100,
+              amount: chargeAmount * 100,
               currency: "KES",
               reference: retryRef,
               mobile_money: {
@@ -195,7 +211,7 @@ export const initiateMpesaCharge = createServerFn({ method: "POST" })
               method: "POST",
               body: JSON.stringify({
                 email: email,
-                amount: config.ticket_price_kes * 100,
+                amount: chargeAmount * 100,
                 currency: "KES",
                 reference: retryRef,
                 channels: ["mobile_money"]
@@ -222,7 +238,7 @@ export const initiateMpesaCharge = createServerFn({ method: "POST" })
         .insert({
           user_id: userId,
           run_id: run.id,
-          amount_kes: config.ticket_price_kes,
+          amount_kes: chargeAmount,
           phone: paystackPhone,
           mpesa_checkout_request_id: finalRef,
           status: 'pending'
@@ -234,7 +250,8 @@ export const initiateMpesaCharge = createServerFn({ method: "POST" })
 
       return {
         runId: run.id,
-        displayText: "Check your phone! Enter your M-Pesa PIN to complete KES 200 payment."
+        amountKes: chargeAmount,
+        displayText: `Check your phone! Enter your M-Pesa PIN to complete KES ${chargeAmount} payment.`
       };
 
     } catch (err: any) {
