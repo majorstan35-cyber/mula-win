@@ -15,25 +15,38 @@ export const adminOverview = createServerFn({ method: "GET" })
         .eq("active", true)
         .maybeSingle();
 
-      // 2. Payments revenue & payouts
-      const { data: payments } = await supabaseAdmin
+      // 2. All payments (all statuses)
+      const { data: allPayments } = await supabaseAdmin
         .from("payments")
-        .select("amount_kes, status")
-        .eq("status", "paid");
+        .select("id, amount_kes, status, phone, created_at, mpesa_checkout_request_id, run_id, user_id, mpesa_receipt")
+        .order("created_at", { ascending: false })
+        .limit(200);
 
-      const totalRevenue = (payments ?? []).reduce((acc: number, p: any) => acc + (p.amount_kes ?? 0), 0);
+      const paid = (allPayments ?? []).filter((p: any) => p.status === "paid");
+      const failed = (allPayments ?? []).filter((p: any) => p.status === "failed");
+      const pending = (allPayments ?? []).filter((p: any) => p.status === "pending");
+      const cancelled = (allPayments ?? []).filter((p: any) => p.status === "cancelled");
 
-      const { data: drawnRuns } = await supabaseAdmin
+      const totalRevenue = paid.reduce((acc: number, p: any) => acc + (p.amount_kes ?? 0), 0);
+      const failedAttempts = failed.length + cancelled.length;
+      const pendingCount = pending.length;
+
+      // 3. Runs - all statuses
+      const { data: allRuns } = await supabaseAdmin
         .from("runs")
-        .select("id, prize_kes, matched_count, created_at")
-        .eq("status", "drawn");
+        .select("id, user_id, prize_kes, matched_count, created_at, status")
+        .order("created_at", { ascending: false })
+        .limit(200);
 
-      const totalPayouts = (drawnRuns ?? []).reduce((acc: number, r: any) => acc + (r.prize_kes ?? 0), 0);
-      const runCount = drawnRuns?.length ?? 0;
+      const drawnRuns = (allRuns ?? []).filter((r: any) => r.status === "drawn");
+      const failedRuns = (allRuns ?? []).filter((r: any) => r.status === "failed");
+      const pendingRuns = (allRuns ?? []).filter((r: any) => r.status === "pending");
+
+      const totalPayouts = drawnRuns.reduce((acc: number, r: any) => acc + (r.prize_kes ?? 0), 0);
       const netMargin = totalRevenue - totalPayouts;
 
-      // 3. Users list with profiles
-      const { data: users } = await supabaseAdmin
+      // 4. Users list with profiles
+      const { data: users } = await (supabaseAdmin as any)
         .from("users")
         .select(`
           id,
@@ -46,7 +59,7 @@ export const adminOverview = createServerFn({ method: "GET" })
           )
         `)
         .order("created_at", { ascending: false })
-        .limit(50);
+        .limit(100);
 
       const formattedUsers = (users ?? []).map((u: any) => ({
         id: u.id,
@@ -57,52 +70,40 @@ export const adminOverview = createServerFn({ method: "GET" })
         blocked: Array.isArray(u.profiles) ? u.profiles[0]?.blocked ?? false : u.profiles?.blocked ?? false,
       }));
 
-      // 4. Recent runs
-      const { data: recentRuns } = await supabaseAdmin
-        .from("runs")
-        .select("id, matched_count, prize_kes, created_at, status")
-        .order("created_at", { ascending: false })
-        .limit(30);
-
       // 5. User comments
       let comments: any[] = [];
       try {
-        const { data: commentRows } = await supabaseAdmin
+        const sb = supabaseAdmin as any;
+        const { data: commentRows } = await sb
           .from("comments")
           .select(`
             id,
             comment_text,
             created_at,
             user_id,
-            run_id,
-            profiles (
-              display_name,
-              phone
-            ),
-            users (
-              email
-            )
+            run_id
           `)
           .order("created_at", { ascending: false })
-          .limit(50);
+          .limit(100);
 
         if (commentRows) {
-          comments = commentRows.map((c: any) => {
-            const prof = Array.isArray(c.profiles) ? c.profiles[0] : c.profiles;
-            const usr = Array.isArray(c.users) ? c.users[0] : c.users;
-            return {
-              id: c.id,
-              comment_text: c.comment_text,
-              created_at: c.created_at,
-              user_id: c.user_id,
-              run_id: c.run_id,
-              display_name: prof?.display_name || usr?.email || "Player",
-              phone: prof?.phone || "",
-            };
-          });
+          comments = commentRows;
         }
       } catch (err: any) {
         console.warn("Could not fetch comments:", err.message);
+      }
+
+      // 6. Admin audit log
+      let auditLog: any[] = [];
+      try {
+        const { data: audit } = await supabaseAdmin
+          .from("admin_audit")
+          .select("id, action, target, details, created_at, admin_id")
+          .order("created_at", { ascending: false })
+          .limit(50);
+        auditLog = audit ?? [];
+      } catch (err: any) {
+        console.warn("Could not fetch audit log:", err.message);
       }
 
       return {
@@ -110,7 +111,11 @@ export const adminOverview = createServerFn({ method: "GET" })
           totalRevenue,
           totalPayouts,
           netMargin,
-          runCount,
+          runCount: drawnRuns.length,
+          failedAttempts,
+          pendingCount,
+          totalSpins: (allRuns ?? []).length,
+          failedRuns: failedRuns.length,
         },
         config: config ?? {
           jackpot_amount_kes: 1000000,
@@ -127,8 +132,16 @@ export const adminOverview = createServerFn({ method: "GET" })
           ],
         },
         users: formattedUsers,
-        recentRuns: recentRuns ?? [],
+        recentRuns: allRuns ?? [],
         comments,
+        auditLog,
+        // Payment breakdown by status
+        payments: {
+          paid: paid.slice(0, 100),
+          failed: failed.slice(0, 100),
+          pending: pending.slice(0, 50),
+          cancelled: cancelled.slice(0, 100),
+        },
       };
     } catch (err: any) {
       console.error("adminOverview error:", err.message);
@@ -176,6 +189,54 @@ export const setUserBlocked = createServerFn({ method: "POST" })
       return { success: true };
     } catch (err: any) {
       console.error("setUserBlocked error:", err.message);
+      throw err;
+    }
+  });
+
+// Manually mark a pending payment as failed (admin override)
+export const markPaymentFailed = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((data: { paymentId: string; runId?: string }) => data)
+  .handler(async ({ data }) => {
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+      await supabaseAdmin
+        .from("payments")
+        .update({ status: "failed" })
+        .eq("id", data.paymentId);
+
+      if (data.runId) {
+        await supabaseAdmin
+          .from("runs")
+          .update({ status: "failed" })
+          .eq("id", data.runId);
+      }
+
+      return { success: true };
+    } catch (err: any) {
+      console.error("markPaymentFailed error:", err.message);
+      throw err;
+    }
+  });
+
+// Grant a free spin to a user (admin tool)
+export const grantFreeSpin = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .validator((data: { userId: string }) => data)
+  .handler(async ({ data }) => {
+    try {
+      const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+
+      const { error } = await supabaseAdmin
+        .from("profiles")
+        .update({ free_spins: 1 })
+        .eq("id", data.userId);
+
+      if (error) throw new Error(error.message);
+      return { success: true };
+    } catch (err: any) {
+      console.error("grantFreeSpin error:", err.message);
       throw err;
     }
   });

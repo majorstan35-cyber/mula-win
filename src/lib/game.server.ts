@@ -37,34 +37,24 @@ function buildTargetNumbers(
   // Clamp M to valid range
   M = Math.max(0, Math.min(M, picks.length, 12));
 
-  // 1. Pick which M index positions of the player's picks will match
-  const indices = Array.from({ length: picks.length }, (_, i) => i);
-  const shuffledIndices = fyShuffle(indices);
-  const matchedIndices = new Set(shuffledIndices.slice(0, M));
-
-  // 2. Build pool of numbers that are NOT in the player's picks
+  // Choose which M of the player's picks will appear in the target
+  const shuffledPicks = fyShuffle(picks);
+  const matchingNums = shuffledPicks.slice(0, M);
+  const matchingSet = new Set(matchingNums);
   const picksSet = new Set(picks);
+
+  // Build pool of numbers that are NOT in the player's picks
   const nonPickPool: number[] = [];
   for (let i = poolMin; i <= poolMax; i++) {
     if (!picksSet.has(i)) nonPickPool.push(i);
   }
+
+  // Fill remaining 12 - M slots from non-pick pool
   const shuffledNonPick = fyShuffle(nonPickPool);
+  const nonMatchingNums = shuffledNonPick.slice(0, 12 - M);
 
-  // 3. Build target array where index i strictly aligns with picks[i]
-  const target: number[] = new Array(picks.length);
-  let nonPickIdx = 0;
-
-  for (let i = 0; i < picks.length; i++) {
-    if (matchedIndices.has(i)) {
-      // Matched: place exact pick at index i (10 at slot 0, 20 at slot 1, etc.)
-      target[i] = picks[i];
-    } else {
-      // Miss: place non-pick number at index i
-      target[i] = shuffledNonPick[nonPickIdx++];
-    }
-  }
-
-  return target;
+  // Combine and shuffle final target
+  return fyShuffle([...matchingNums, ...nonMatchingNums]);
 }
 
 // --------------------------------------------------------------------------
@@ -74,8 +64,7 @@ function buildTargetNumbers(
 // --------------------------------------------------------------------------
 function determineOutcome(
   runId: string,
-  totalRevenue: number,
-  userDrawnCount: number = 0
+  totalRevenue: number
 ): { M: number; prize: number } {
   const hash = crypto.createHash("sha256").update(runId).digest("hex");
 
@@ -83,25 +72,10 @@ function determineOutcome(
   const roll = parseInt(hash.slice(0, 8), 16) % 1_000_000; // 0 … 999 999
 
   // ---  BELOW FLOAT THRESHOLD (KES 250,000)  ---
-  // No prizes at all. 
+  // No prizes at all. Hard ceiling: 8/12 (90%) or 7/12 (10%).
   if (totalRevenue < 250_000) {
     const lowRoll = parseInt(hash.slice(8, 10), 16) % 100; // 0-99
-
-    // First spin: 90% chance 8/12, 10% chance 7/12
-    if (userDrawnCount === 0) {
-      const M = lowRoll < 90 ? 8 : 7;
-      return { M, prize: 0 };
-    }
-
-    // 2nd spin onwards: realistic variation (6/12, 7/12, or 5/12)
-    let M = 6;
-    if (lowRoll < 45) {
-      M = 6; // 45% -> 6/12
-    } else if (lowRoll < 80) {
-      M = 7; // 35% -> 7/12
-    } else {
-      M = 5; // 20% -> 5/12
-    }
+    const M = lowRoll < 90 ? 8 : 7; // 90% → 8, 10% → 7
     return { M, prize: 0 };
   }
 
@@ -126,14 +100,9 @@ function determineOutcome(
     return { M: 9, prize: 20_000 };
   }
 
-  // Default near-miss: 1st spin 8/12, 2nd+ spins varied 6/12, 7/12, 5/12
+  // Default near-miss: 90% chance 8/12, 10% chance 7/12, KES 0
   const nearRoll = parseInt(hash.slice(10, 12), 16) % 100; // 0-99
-  if (userDrawnCount === 0) {
-    const M = nearRoll < 90 ? 8 : 7;
-    return { M, prize: 0 };
-  }
-
-  const M = nearRoll < 45 ? 6 : nearRoll < 80 ? 7 : 5;
+  const M = nearRoll < 90 ? 8 : 7;
   return { M, prize: 0 };
 }
 
@@ -162,21 +131,11 @@ export async function settleDraw(
       .eq("id", run.round_id)
       .maybeSingle();
 
-    const { data: config } = await supabaseAdmin
-      .from("jackpot_config")
-      .select("pool_min, pool_max")
-      .eq("active", true)
-      .maybeSingle();
-
-    const poolMin = config?.pool_min ?? 1;
-    const poolMax = config?.pool_max ?? 40;
-    const targetNumbers = getTargetNumbersForRun(run, round?.target_numbers ?? [], 0, poolMin, poolMax);
-
     return {
       run,
-      target: targetNumbers,
-      seedHash: round?.seed_hash || "hash_secured",
-      roundNumber: round?.round_number ?? 1,
+      target: round?.target_numbers ?? [],
+      seedHash: round?.seed_hash ?? "",
+      roundNumber: round?.round_number ?? 0,
     };
   }
 
@@ -210,18 +169,8 @@ export async function settleDraw(
     0
   );
 
-  // Calculate completed runs for this user before this one
-  const { count } = await supabaseAdmin
-    .from("runs")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", run.user_id)
-    .eq("status", "drawn")
-    .lt("created_at", run.created_at);
-
-  const userDrawnCount: number = count ?? 0;
-
   // 5. Determine match count M and prize using float-controlled algorithm
-  const { M, prize } = determineOutcome(runId, totalRevenue, userDrawnCount);
+  const { M, prize } = determineOutcome(runId, totalRevenue);
 
   // 6. Build target numbers that guarantee exactly M of the player's picks match
   const picks: number[] = run.player_numbers || [];

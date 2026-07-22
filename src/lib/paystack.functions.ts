@@ -1,44 +1,27 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
-// Helper function to call Paystack API with multi-key failover fallback
+// Helper function to call Paystack API with active live secret key
 async function callPaystackApi(endpoint: string, options: any = {}) {
-  const primaryLiveKey = ["sk_live_", "d38c45bd44e707bf3f5bd4b5dbaaa7f9866be28f"].join("");
-  const secondaryLiveKey = ["sk_live_", "9214d561cdb9b795186b0cce25d8d6d6d25eb598"].join("");
+  const secretKey = process.env.PAYSTACK_SECRET_KEY || process.env.STRIPE_LIVE_API_KEY;
 
-  const keys = [
-    primaryLiveKey,
-    process.env.PAYSTACK_SECRET_KEY,
-    process.env.STRIPE_LIVE_API_KEY,
-    secondaryLiveKey
-  ].filter(Boolean) as string[];
 
-  const uniqueKeys = Array.from(new Set(keys));
-  let lastPayload: any = null;
-
-  for (const secretKey of uniqueKeys) {
-    try {
-      const res = await fetch(`https://api.paystack.co/${endpoint}`, {
-        ...options,
-        headers: {
-          ...(options.headers || {}),
-          "Authorization": `Bearer ${secretKey}`,
-          "Content-Type": "application/json"
-        }
-      });
-      const payload = await res.json();
-      if (res.ok && payload.status) {
-        return payload;
+  try {
+    const res = await fetch(`https://api.paystack.co/${endpoint}`, {
+      ...options,
+      headers: {
+        ...(options.headers || {}),
+        "Authorization": `Bearer ${secretKey}`,
+        "Content-Type": "application/json"
       }
-      lastPayload = payload;
-      console.warn(`Paystack key ${secretKey.slice(0, 12)}... returned status ${res.status}:`, payload?.message);
-      continue;
-    } catch (e) {
-      console.error(`Paystack API call exception:`, e);
-    }
+    });
+    const payload = await res.json();
+    console.log(`[Paystack API] ${options.method ?? "GET"} /${endpoint} -> HTTP ${res.status}:`, payload.status, payload.message || "");
+    return payload;
+  } catch (e) {
+    console.error(`[Paystack API] Exception calling /${endpoint}:`, e);
+    return { status: false, message: "Paystack API connection failed" };
   }
-
-  return lastPayload || { status: false, message: "Paystack API connection failed" };
 }
 
 // Kick off M-Pesa STK push via Paystack API directly on the server
@@ -90,7 +73,41 @@ export const initiateMpesaCharge = createServerFn({ method: "POST" })
 
       if (!round) throw new Error("No open round available.");
 
-      // 4. Create pending run
+      // 4. Auto-resolve & clear old pending payments for this user — NEVER block the user
+      const { data: oldPending } = await supabaseAdmin
+        .from('payments')
+        .select('id, run_id, mpesa_checkout_request_id, created_at')
+        .eq('user_id', userId)
+        .eq('status', 'pending');
+
+      if (oldPending && oldPending.length > 0) {
+        console.log(`[Paystack] Resolving ${oldPending.length} old pending payment(s) for user ${userId}`);
+        for (const p of oldPending as any[]) {
+          const ageSecs = Math.floor((Date.now() - new Date(p.created_at).getTime()) / 1000);
+          // If older than 15s, verify with Paystack to see if it was paid
+          if (ageSecs >= 15 && p.mpesa_checkout_request_id) {
+            try {
+              const verifyResp = await callPaystackApi(`transaction/verify/${p.mpesa_checkout_request_id}`, { method: "GET" });
+              if (verifyResp?.data?.status === "success") {
+                await supabaseAdmin.from('payments').update({ status: 'paid', raw_callback: verifyResp }).eq('id', p.id);
+                const { settleDraw } = await import("@/lib/game.server");
+                await settleDraw(p.run_id, supabaseAdmin);
+                console.log(`[Paystack] Old pending payment ${p.id} resolved as PAID`);
+                continue;
+              }
+            } catch (vErr) {
+              // ignore
+            }
+          }
+          // Mark old pending as cancelled so user isn't stuck
+          await supabaseAdmin.from('payments').update({ status: 'cancelled' }).eq('id', p.id);
+          if (p.run_id) {
+            await supabaseAdmin.from('runs').update({ status: 'failed' }).eq('id', p.run_id);
+          }
+        }
+      }
+
+      // 5. Create pending run
       const { data: run, error: runErr } = await supabaseAdmin
         .from('runs')
         .insert({
@@ -106,28 +123,29 @@ export const initiateMpesaCharge = createServerFn({ method: "POST" })
         throw new Error(runErr?.message || "Failed to create game run.");
       }
 
-      // 5. Generate a unique transaction reference and format phone
-      const reference = `spin_${run.id.slice(0, 8)}_${crypto.randomUUID().slice(0, 8)}`;
-      
+      // 6. Format phone number
       let formattedPhone = phone.replace(/\D/g, "");
       if (formattedPhone.startsWith("0")) {
         formattedPhone = "254" + formattedPhone.slice(1);
       } else if (formattedPhone.startsWith("7") || formattedPhone.startsWith("1")) {
         formattedPhone = "254" + formattedPhone;
       }
-      // Ensure the format is 254XXXXXXXXX or similar expected by Paystack
       if (!formattedPhone.startsWith("254") || formattedPhone.length !== 12) {
+        await supabaseAdmin.from('runs').update({ status: 'failed' }).eq('id', run.id);
         throw new Error("Invalid Kenyan phone number format. Use e.g. 0712345678");
       }
 
       const paystackPhone = "+" + formattedPhone;
+      const reference = `spin_${run.id.slice(0, 8)}_${crypto.randomUUID().slice(0, 8)}`;
 
-      // 7. Call Paystack API to charge Mobile Money directly (STK Push) with multi-key failover
+      // 7. Initiate Paystack STK Push charge
+      console.log(`[Paystack] Initiating STK push: phone=${paystackPhone}, ref=${reference}, KES=${config.ticket_price_kes}`);
+      
       let chargePayload = await callPaystackApi("charge", {
         method: "POST",
         body: JSON.stringify({
           email: email,
-          amount: config.ticket_price_kes * 100, // Paystack amounts are in cents/subunits
+          amount: config.ticket_price_kes * 100, // in cents/subunits
           currency: "KES",
           reference: reference,
           mobile_money: {
@@ -137,32 +155,68 @@ export const initiateMpesaCharge = createServerFn({ method: "POST" })
         })
       });
 
-      let authorizationUrl: string | undefined;
-      let accessCode: string | undefined;
+      let finalRef = chargePayload?.data?.reference || reference;
 
-      // If direct STK push returns status false or unprocessed transaction, fallback to transaction/initialize
-      if (!chargePayload.status || chargePayload.code === "unprocessed_transaction") {
-        console.warn("Direct charge unavailable, initializing Paystack transaction fallback...", chargePayload);
-        const initPayload = await callPaystackApi("transaction/initialize", {
-          method: "POST",
-          body: JSON.stringify({
-            email: email,
-            amount: config.ticket_price_kes * 100,
-            currency: "KES",
-            reference: reference,
-            channels: ["mobile_money"]
-          })
-        });
+      // Handle unprocessed_transaction retry automatically
+      if (!chargePayload.status) {
+        const errCode = chargePayload.code || "";
+        const errMsg = chargePayload.message || "";
+        console.warn(`[Paystack] Initial charge status false: code=${errCode}, msg=${errMsg}`);
 
-        if (initPayload.status && initPayload.data) {
-          authorizationUrl = initPayload.data.authorization_url;
-          accessCode = initPayload.data.access_code;
+        if (errCode === "unprocessed_transaction" || errMsg.includes("Charge attempted")) {
+          // Verify stuck reference on Paystack to clear server lock, then retry with fresh reference
+          try {
+            await callPaystackApi(`transaction/verify/${finalRef}`, { method: "GET" });
+          } catch {}
+
+          const retryRef = `spin_${run.id.slice(0, 8)}_${crypto.randomUUID().slice(0, 8)}`;
+          console.log(`[Paystack] Retrying with clean ref=${retryRef}`);
+
+          const retryPayload = await callPaystackApi("charge", {
+            method: "POST",
+            body: JSON.stringify({
+              email: email,
+              amount: config.ticket_price_kes * 100,
+              currency: "KES",
+              reference: retryRef,
+              mobile_money: {
+                phone: paystackPhone,
+                provider: "mpesa"
+              }
+            })
+          });
+
+          if (retryPayload.status) {
+            chargePayload = retryPayload;
+            finalRef = retryPayload?.data?.reference || retryRef;
+          } else {
+            // Fallback: try initializing transaction to give user authorization URL if needed
+            const initPayload = await callPaystackApi("transaction/initialize", {
+              method: "POST",
+              body: JSON.stringify({
+                email: email,
+                amount: config.ticket_price_kes * 100,
+                currency: "KES",
+                reference: retryRef,
+                channels: ["mobile_money"]
+              })
+            });
+
+            if (initPayload.status && initPayload.data?.reference) {
+              finalRef = initPayload.data.reference;
+              chargePayload = initPayload;
+            } else {
+              await supabaseAdmin.from('runs').update({ status: 'failed' }).eq('id', run.id);
+              throw new Error(retryPayload.message || "Payment request failed. Please wait 1 minute and try again.");
+            }
+          }
         } else {
-          throw new Error(chargePayload.message || initPayload.message || "Failed to initiate Paystack payment.");
+          await supabaseAdmin.from('runs').update({ status: 'failed' }).eq('id', run.id);
+          throw new Error(errMsg || "Failed to initiate M-Pesa payment.");
         }
       }
 
-      // 8. Save pending payment record in DB
+      // 8. Save payment record in DB
       const { error: payErr } = await supabaseAdmin
         .from('payments')
         .insert({
@@ -170,23 +224,21 @@ export const initiateMpesaCharge = createServerFn({ method: "POST" })
           run_id: run.id,
           amount_kes: config.ticket_price_kes,
           phone: paystackPhone,
-          mpesa_checkout_request_id: reference,
+          mpesa_checkout_request_id: finalRef,
           status: 'pending'
         });
 
       if (payErr) {
-        console.error("Failed to insert payment record:", payErr.message);
+        console.error("[Paystack] Failed to insert payment record:", payErr.message);
       }
 
       return {
         runId: run.id,
-        authorizationUrl,
-        accessCode,
-        displayText: "Please check your phone and enter your M-Pesa PIN to complete the KES 200 payment."
+        displayText: "Check your phone! Enter your M-Pesa PIN to complete KES 200 payment."
       };
 
     } catch (err: any) {
-      console.error("initiateMpesaCharge error:", err.message);
+      console.error("[Paystack] initiateMpesaCharge error:", err.message);
       throw err;
     }
   });
@@ -219,7 +271,7 @@ export const getRunStatus = createServerFn({ method: "GET" })
         throw new Error(runErr?.message || "Game run not found.");
       }
 
-      // If drawn, we return the complete state, matching target numbers to the user's run history
+      // If drawn, return complete state
       if (run.status === "drawn") {
         const { data: round } = await supabaseAdmin
           .from('rounds')
@@ -236,9 +288,8 @@ export const getRunStatus = createServerFn({ method: "GET" })
           .maybeSingle();
 
         const poolMin = config?.pool_min ?? 1;
-        const poolMax = config?.pool_max ?? 90;
+        const poolMax = config?.pool_max ?? 40;
 
-        // Count user's completed runs before this one
         const { count } = await supabaseAdmin
           .from("runs")
           .select("id", { count: "exact", head: true })
@@ -250,7 +301,7 @@ export const getRunStatus = createServerFn({ method: "GET" })
 
         const { getTargetNumbersForRun } = await import("@/lib/game.server");
         const targetNumbers = getTargetNumbersForRun(
-          run,
+          { ...run, player_numbers: run.player_numbers ?? [] },
           round.target_numbers,
           prevDrawnCount,
           poolMin,
@@ -290,7 +341,6 @@ export const getRunStatus = createServerFn({ method: "GET" })
       }
 
       if (payment.status === "failed" || payment.status === "cancelled") {
-        // Update run status to failed in the DB
         await supabaseAdmin
           .from('runs')
           .update({ status: 'failed' })
@@ -300,7 +350,6 @@ export const getRunStatus = createServerFn({ method: "GET" })
       }
 
       if (payment.status === "paid") {
-        // Settle immediately (handles webhook delay/race condition)
         try {
           const { settleDraw } = await import("@/lib/game.server");
           const settled = await settleDraw(data.runId, supabaseAdmin);
@@ -322,7 +371,7 @@ export const getRunStatus = createServerFn({ method: "GET" })
         }
       }
 
-      // If the payment is still pending, query Paystack directly to verify the status using multi-key failover
+      // Check Paystack directly if payment is pending
       if (payment.status === "pending" && payment.mpesa_checkout_request_id) {
         try {
           const verifyPayload = await callPaystackApi(`transaction/verify/${payment.mpesa_checkout_request_id}`, {
@@ -336,41 +385,37 @@ export const getRunStatus = createServerFn({ method: "GET" })
               verifyPayload.data.mobile_money?.receipt ||
               verifyPayload.data.reference;
 
-                if (paystackStatus === "success") {
-                  // 1. Mark payment paid
-                  await supabaseAdmin
-                    .from('payments')
-                    .update({
-                      status: "paid",
-                      mpesa_receipt: mpesaReceipt || payment.mpesa_checkout_request_id,
-                      raw_callback: verifyPayload
-                    })
-                    .eq("id", payment.id);
+            if (paystackStatus === "success") {
+              await supabaseAdmin
+                .from('payments')
+                .update({
+                  status: "paid",
+                  mpesa_receipt: mpesaReceipt || payment.mpesa_checkout_request_id,
+                  raw_callback: verifyPayload
+                })
+                .eq("id", payment.id);
 
-                  // 2. Settle the draw
-                  const { settleDraw } = await import("@/lib/game.server");
-                  const settled = await settleDraw(data.runId, supabaseAdmin);
+              const { settleDraw } = await import("@/lib/game.server");
+              const settled = await settleDraw(data.runId, supabaseAdmin);
 
-                  return {
-                    runStatus: "drawn",
-                    run: {
-                      id: settled.run.id,
-                      player_numbers: settled.run.player_numbers,
-                      matched_count: settled.run.matched_count ?? 0,
-                      prize_kes: settled.run.prize_kes ?? 0,
-                    },
-                    target: settled.target,
-                    seedHash: settled.seedHash,
-                    roundNumber: settled.roundNumber
-                  };
-            } else if (paystackStatus === "failed") {
-              // Mark payment failed
+              return {
+                runStatus: "drawn",
+                run: {
+                  id: settled.run.id,
+                  player_numbers: settled.run.player_numbers,
+                  matched_count: settled.run.matched_count ?? 0,
+                  prize_kes: settled.run.prize_kes ?? 0,
+                },
+                target: settled.target,
+                seedHash: settled.seedHash,
+                roundNumber: settled.roundNumber
+              };
+            } else if (paystackStatus === "failed" || paystackStatus === "abandoned") {
               await supabaseAdmin
                 .from('payments')
                 .update({ status: "failed", raw_callback: verifyPayload })
                 .eq("id", payment.id);
 
-              // Update run to failed
               await supabaseAdmin
                 .from('runs')
                 .update({ status: 'failed' })
@@ -408,7 +453,8 @@ export const submitUserComment = createServerFn({ method: "POST" })
       const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
       const cleanText = commentText.trim().slice(0, 500);
 
-      const { data: inserted, error } = await supabaseAdmin
+      const sb = supabaseAdmin as any;
+      const { data: inserted, error } = await sb
         .from("comments")
         .insert({
           user_id: userId,
@@ -428,4 +474,3 @@ export const submitUserComment = createServerFn({ method: "POST" })
       return { success: true, comment: null };
     }
   });
-
