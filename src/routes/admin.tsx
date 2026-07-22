@@ -1,7 +1,7 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { useServerFn } from "@tanstack/react-start";
-import { adminOverview, setJackpotConfig, setUserBlocked, markPaymentFailed } from "@/lib/admin.functions";
+import { adminOverview, setJackpotConfig, setUserBlocked, markPaymentFailed, reconcilePendingPayments } from "@/lib/admin.functions";
 import { useAuth } from "@/lib/auth-context";
 
 export const Route = createFileRoute("/admin")({
@@ -17,12 +17,16 @@ function AdminPage() {
   const saveConfig = useServerFn(setJackpotConfig);
   const toggleBlock = useServerFn(setUserBlocked);
   const forceFailPayment = useServerFn(markPaymentFailed);
+  const runReconcile = useServerFn(reconcilePendingPayments);
 
   const [data, setData] = useState<any>(null);
   const [err, setErr] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [reconciling, setReconciling] = useState(false);
+  const [reconcileMsg, setReconcileMsg] = useState<string | null>(null);
   const [tab, setTab] = useState<Tab>("overview");
   const [search, setSearch] = useState("");
+
 
   useEffect(() => {
     if (!loading && !user) navigate({ to: "/auth" });
@@ -39,7 +43,13 @@ function AdminPage() {
   }
 
   useEffect(() => {
-    if (user) reload();
+    if (!user) return;
+    reload();
+    // Auto-refresh metrics every 5 seconds for live real-time updates
+    const interval = setInterval(() => {
+      reload();
+    }, 5000);
+    return () => clearInterval(interval);
   }, [user]);
 
   if (err) return (
@@ -78,6 +88,20 @@ function AdminPage() {
     !search || p.phone?.includes(search) || p.mpesa_checkout_request_id?.includes(search)
   );
 
+  async function handleReconcile() {
+    setReconciling(true);
+    setReconcileMsg(null);
+    try {
+      const res = await runReconcile();
+      setReconcileMsg(`Reconciled ${res.reconciled} items: ${res.settled} settled as PAID, ${res.failed} marked as FAILED.`);
+      await reload();
+    } catch (e: any) {
+      setReconcileMsg(`Error: ${e.message}`);
+    } finally {
+      setReconciling(false);
+    }
+  }
+
   return (
     <main className="mx-auto max-w-5xl px-4 py-8">
       {/* Header */}
@@ -86,11 +110,26 @@ function AdminPage() {
           <Link to="/" className="text-sm text-[color:var(--muted-foreground)] hover:text-white">← Back</Link>
           <span className="text-xs uppercase tracking-widest text-[color:var(--gold-soft)] border border-[color:var(--gold-soft)]/30 rounded px-2 py-0.5">Admin</span>
         </div>
-        <button onClick={reload} className="text-xs px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition">
-          ↻ Refresh
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            disabled={reconciling}
+            onClick={handleReconcile}
+            className="text-xs px-3 py-1.5 rounded-lg bg-[color:var(--gold)]/20 text-[color:var(--gold-soft)] border border-[color:var(--gold)]/30 hover:bg-[color:var(--gold)]/30 transition disabled:opacity-50"
+          >
+            {reconciling ? "⏳ Reconciling..." : "⚡ Reconcile Pendings"}
+          </button>
+          <button onClick={reload} className="text-xs px-3 py-1.5 rounded-lg bg-white/5 hover:bg-white/10 transition">
+            ↻ Refresh
+          </button>
+        </div>
       </div>
+      {reconcileMsg && (
+        <div className="mb-4 rounded-xl border border-[color:var(--gold)]/40 bg-[color:var(--gold)]/10 px-4 py-2.5 text-xs text-[color:var(--gold-soft)]">
+          {reconcileMsg}
+        </div>
+      )}
       <h1 className="font-display text-3xl font-bold mb-2">Mula Admin Dashboard</h1>
+
 
       {/* Metrics strip */}
       <section className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
