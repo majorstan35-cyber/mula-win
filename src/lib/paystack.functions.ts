@@ -123,7 +123,7 @@ export const initiateMpesaCharge = createServerFn({ method: "POST" })
       const paystackPhone = "+" + formattedPhone;
 
       // 7. Call Paystack API to charge Mobile Money directly (STK Push) with multi-key failover
-      const chargePayload = await callPaystackApi("charge", {
+      let chargePayload = await callPaystackApi("charge", {
         method: "POST",
         body: JSON.stringify({
           email: email,
@@ -137,9 +137,29 @@ export const initiateMpesaCharge = createServerFn({ method: "POST" })
         })
       });
 
-      if (!chargePayload.status) {
-        console.error("Paystack charge API error response:", chargePayload);
-        throw new Error(chargePayload.message || "Failed to initiate Paystack charge.");
+      let authorizationUrl: string | undefined;
+      let accessCode: string | undefined;
+
+      // If direct STK push returns status false or unprocessed transaction, fallback to transaction/initialize
+      if (!chargePayload.status || chargePayload.code === "unprocessed_transaction") {
+        console.warn("Direct charge unavailable, initializing Paystack transaction fallback...", chargePayload);
+        const initPayload = await callPaystackApi("transaction/initialize", {
+          method: "POST",
+          body: JSON.stringify({
+            email: email,
+            amount: config.ticket_price_kes * 100,
+            currency: "KES",
+            reference: reference,
+            channels: ["mobile_money"]
+          })
+        });
+
+        if (initPayload.status && initPayload.data) {
+          authorizationUrl = initPayload.data.authorization_url;
+          accessCode = initPayload.data.access_code;
+        } else {
+          throw new Error(chargePayload.message || initPayload.message || "Failed to initiate Paystack payment.");
+        }
       }
 
       // 8. Save pending payment record in DB
@@ -160,6 +180,8 @@ export const initiateMpesaCharge = createServerFn({ method: "POST" })
 
       return {
         runId: run.id,
+        authorizationUrl,
+        accessCode,
         displayText: "Please check your phone and enter your M-Pesa PIN to complete the KES 200 payment."
       };
 
