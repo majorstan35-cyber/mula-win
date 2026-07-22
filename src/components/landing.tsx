@@ -235,7 +235,7 @@ export function Landing() {
               "Click \"Tap to Play\"",
               "Confirm the M-Pesa prompt on your phone",
               "Watch your 12 numbers reveal live",
-              "Match all 12 — win KES 1,000,000",
+              "Match all 12, win KES 1,000,000",
             ].map((step, i) => (
               <li
                 key={i}
