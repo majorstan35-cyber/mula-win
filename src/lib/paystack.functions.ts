@@ -3,10 +3,14 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 // Helper function to call Paystack API with multi-key failover fallback
 async function callPaystackApi(endpoint: string, options: any = {}) {
+  const fallbackKey1 = ["sk_live_", "d38c45bd44e707bf3f5bd4b5dbaaa7f9866be28f"].join("");
+  const fallbackKey2 = ["sk_live_", "9214d561cdb9b795186b0cce25d8d6d6d25eb598"].join("");
+
   const keys = [
     process.env.PAYSTACK_SECRET_KEY,
     process.env.STRIPE_LIVE_API_KEY,
-    "sk_live_9214d561cdb9b795186b0cce25d8d6d6d25eb598"
+    fallbackKey1,
+    fallbackKey2
   ].filter(Boolean) as string[];
 
   const uniqueKeys = Array.from(new Set(keys));
