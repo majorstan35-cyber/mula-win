@@ -25,56 +25,152 @@ const CITIES = [
   "Ruiru", "Kiambu", "Athi River", "Nanyuki", "Kajiado", "Migori", "Homa Bay", "Busia",
 ];
 
-// Comments split by prize tier — text MUST match the badge shown
+// ─── Comments split by prize tier — text MUST match badge shown ──────────────
 const WINNING_MESSAGES_20K = [
-  "Stay guided omera! KES 20,000 confirmed for Kisumu! 🎉🔥",
-  "Eeeh Ngai fafa! 20,000 kwa Mpesa hapo hapo! Njuguna ameamini! 🙌💸",
-  "Omwami! Kakamega power — 20,000 is real! 💪🎉",
-  "Ero! Mpesa alert 20,000 landed live on phone! 📱✨",
-  "9 outta 12 na bado! 20,000 credited live! 🔥🇰🇪",
-  "Nimeamini sasa! 20,000 Machakos represent! 🇰🇪🎉",
-  "Mombasa raha! 20,000 credited live on Mpesa! 🌊💸",
-  "Ruiru cyber guy — 20,000 alert confirmed! Bora uhai! 💻🚀",
+  "Ero omera! 20k landed straight on Mpesa, sijui kucheza tena 😭🙌",
+  "Buda si unajua? Alert ya 20,000 imetoka hata sijapumzika 😂📱",
+  "Ngai fafa! Wambui ameambia ukweli — 20k imefika sasa hivi 🙏💸",
+  "Khayekha! Omwami wangu 20,000 iko safe Mpesa yangu 💪🥳",
+  "Mombasa tunaendelea! Alert ya elfu ishirini imeingia 🌊💰",
+  "Chesire! Iten hii ni real — 20k credited leo asubuhi 🏃🔥",
+  "Unadhani ni mchezo? 9 out of 12 na 20,000 confirmed! Machakos power 🇰🇪",
+  "Ndugu yangu nimefurahi sana, 20k kutoka kwa mula win 😭🎉",
+  "Hii pesa saa hii imenisaidia sana, 20,000 intact Mpesa 🙌✨",
+  "Ebu niambie kama hii si real — alert 20k imeingia right now 😱📲",
+  "Onyinkwa! Kisii power — 20,000 credited bila stress! 🎊💃",
+  "Wuod Kisumu represent! 20k straight kwa simu yangu 🔥🎉",
+  "Wewe nakuambia hii kitu inafanya kazi, 20,000 iko kwa akaunti 💸🏆",
+  "Nilidhani ni mchezo mpaka 20k ilipoingia — Embu represent! 😂🎉",
+  "Poa sana! Elfu ishirini zimeingia bila kusumbua 🍀💰",
+  "Sawa kabisa! Mpesa alert ya 20k — Nanyuki tunaendelea 🥳🚀",
+  "Aaaah nimeshindwa kuamini, 20,000 credited straight hapo! 😭🙏",
+  "Naweza sema ukweli? Hii app ni legit — 20k imefika Meru 🎯💸",
+  "Kibet aliambia ukweli, Eldoret tunawin — 20,000 alert! 🏃💨",
+  "Baba wa nyumba amenipata 20k bila kutoka nje, Kitale represent 🏠💸",
+  "Nakuru simu imepiga — 20,000 confirmed! Tunaendelea tena 🎊🔥",
+  "Oooh Ngai! Njeri alisema 20k — kweli kweli iko Mpesa 🙌💎",
+  "Garissa tunaendelea! 20,000 alert imeingia saa hii hii 🔥💸",
+  "Lakini hii app kweli kweli inabeba — 20k credited Kilifi 🌴💰",
+  "Simu inapiga vibration ya Mpesa — 20,000 iko hapa Malindi 📳💸",
+  "Eeeh mungu wangu — nilikuwa naona tu, 20k imeingia Bungoma! 😭🎉",
+  "Auma yangu wa Siaya — 20k credited no jokes 🎉🙌",
+  "Spin moja na 20k straight — Ruiru boys tunaendelea 💪🔥",
+  "Wakinywa chai Kericho — mimi niko na 20k Mpesa tayari 🍵😂",
 ];
 
 const WINNING_MESSAGES_25K = [
-  "Omwabo! Kisii town represent! 25,000 payout received! 🤑💃",
-  "Chebet happy — 25,000 loaded! Eldoret champion! 🏃💨🥳",
-  "Mogaka joyful! 25k instant payout alert! 🍀🥳",
-  "Webuye represent! 25,000 alert received wuuuh! 🎉💸",
-  "Ngai fafa 25,000 loaded instant! Karatina vibes! 🙌💰",
-  "Manze 25k alert just popped on my phone! Thika power! 📱🔥",
-  "Kericho tea land — 25,000 payout received, hallelujah! 🍵🥳",
-  "10 out of 12! 25,000 credited straight to Mpesa, Nakuru vibes! 🎊💸",
+  "Omwabo sana! 25,000 credited — Nyamira power imethibitishwa 🤑💃",
+  "Manze buda, simu imepiga 25k — Thika boys tuko juu 📱🔥",
+  "Chebet akipiga kelele Eldoret — 25,000 iko Mpesa sasa 🏃💨🥳",
+  "Ngai fafa Wanjiku — 25k credited bila delay! Kiambu represent 🙌💰",
+  "Ebu angalia hii — 25,000 Mpesa alert Webuye power! 🎉💸",
+  "Otieno wa Kisumu — 25k straight to Mpesa, no stress 🎊🔥",
+  "Nakuru chai na 25,000 kwa mfukoni saa hii 😂🍵💸",
+  "Umenisimamisha! 10 out of 12 na 25k — Karatina represent 🏆✨",
+  "Hata sikuamini mpaka nikaona Mpesa — 25,000 iko safe 😱💰",
+  "Kericho tea land tena! 25k alert — Kibet ataambia wote 🍵💸",
+  "Kipchoge speed ya akili — 25,000 credited bila kusita 🏃🥇",
+  "Moraa yangu — Kisii watu wanawin 25k bila stress 💃🤑",
+  "Mombasa raha — 25k imeingia saa hii, Mpesa inanikubaliana 🌊💸",
+  "Hii ni kweli — 25,000 imetoka kwa Mula Win, Embu represent 🎉💪",
+  "Sijui kucheka ama kulilia — 25k credited Meru right now 😭😂",
+  "Simu yangu inalia na furaha — 25,000 alert imetoka Garissa 📳💸",
+  "Machakos power! Mwende amesema 25k iko kwa akaunti leo 🇰🇪🥳",
+  "Buda nimekuambia hii kitu ni legit — 25k imethibitishwa Ruiru 💯🔥",
+  "Hallelujah! Elfu ishirini na tano Mpesa — Kitale inawin 🙏💰",
+  "Naivasha vibes — 25,000 alert imeingia wakati wa mapumziko 🌿💸",
+  "Eeeh mimi Adhiambo wa Homa Bay — 25k credited bila mchezo 😭🎉",
+  "10 numbers matched — 25,000 saa hii hii Nanyuki represent 🏔️💸",
+  "Watu wa Bungoma — 25k imethibitishwa. Hii si mchezo! 💪🎊",
+  "Unanikashifu? 25k landed — Kilifi beach player tuko juu 🌊🤑",
+  "Simama hapo — 25,000 credited kweli kweli! Nyeri power 🏆✨",
+  "Sawa kabisa! Simu imelia na 25k — Malindi represent 📲🔥",
+  "Omwami wa Kakamega — 25,000 straight Mpesa, bora uhai 💪💸",
+  "Aaah Njeri amelala vizuri leo — 25k iko kwa simu 😂🙌",
+  "Siaya represent! Achieng amesema 25,000 no lies — iko safe 🎉💎",
+  "Hata nilipigia mama simu — 25k credited Nakuru! 😭🙏",
 ];
 
 const WINNING_MESSAGES_50K = [
-  "Wairimu happiness overloaded! 50,000 won clean! 💎🚀",
-  "Wuod Baba! 50,000 in the bag! Siaya power! 🚀🎉",
-  "No way! Matched 11/12! 50,000 jackpot winner here! 💎👑",
-  "Eeeh! 11 numbers matched — 50,000 credited! Mimi ni champion! 🥇🔥",
-  "Kayole represent! 50k alert bana! Dunia ni yetu! 💸👑",
-  "Omwabo! 50,000 saa hii! Kisii county hatuwezi pinga! 🎊💎",
+  "EEEEEH! 50,000 credited — Wairimu wa Kiambu hataamini! 💎🚀😭",
+  "Omwabo wa miaka yote! 50k Siaya — Wuod Baba ameshinda leo! 🎊🥇",
+  "11 numbers matched... sitaki kulilia, 50,000 iko MPESA SASA 😭💎",
+  "Kayole boys tuko juu! 50k bana, dunia ni yetu leo usiku! 💸👑",
+  "Omwabo! Kisii county — 50,000 saa hii ndio kwanza ninaamini 🎊💎",
+  "Aaaah nimeshindwa! 11/12 na 50k straight — Eldoret power forever 🏃🥇",
+  "Mama yangu atalilia — 50,000 credited Homa Bay. Ero omera! 😭🎉",
+  "Hata sikuamini, spin moja — 50k Mpesa Mombasa inaendelea! 🌊💎",
+  "Kibet alikuwa anasema nikimbie — nimekata nikashinda 50k! 😂🏆",
+  "Nakuru mtu wa kawaida — 50,000 leo sitaenda kazi kesho 😂💸",
+  "Njeri amepigia wote simu — 50k confirmed Nyeri! Ngai fafa! 🙌🥳",
+  "Buda najua unaona — 50k real, Thika West represent! 💪🔥",
+  "Omwami wa Kakamega — elfu hamsini straight kwa Mpesa! 🥰💎",
+  "Mwende wa Machakos analia machozi ya furaha — 50k iko safe 😭🎉",
+  "11 out of 12! Bado napigia simu friends — 50k credited sasa 📞💸",
+  "Watu wa Kisumu — Auma ameshinda 50,000. Hata sikuamini! 😱🏆",
+  "Hii ndiyo nguvu ya Mula Win — 50k Mpesa Embu right now! 🏆🔥",
+  "Adhiambo wa Siaya amesema 50k iko — na mimi naona alert! 😭🎊",
+  "Ruiru Eastlands champion — 50,000 credited bila kuwaza sana 💯💎",
+  "Kiambu power — Wanjiku amesema ukweli. 50k iko Mpesa saa hii 🙌💸",
+  "Lakini hii game — 50k straight credited, Bungoma represent! 😱🥳",
+  "Otieno alikataa kuspin — mimi nikaspin, 50k iko safe Kisumu 😂🏆",
+  "Kilifi beach winner — 50,000 wakati jua likichomeka 🌊😎💎",
+  "Hata nafikiri ni ndoto — 50k Mpesa saa hii. Nanyuki power! 😭🔥",
+  "11 matched! Mpesa inalia — 50k confirmed, Garissa represent! 📳💸",
+  "Mtu wa Nakuru — 50,000 saa hii, sitaambia bosi kesho 😂💎",
+  "Eeeh Chesire wa Iten — umeshinda 50k, mbio za Leo hazina maana 🏃🥇💸",
 ];
 
+const NONWIN_POOL = [
+  "Missed by 3 but iko karibu — spinning again saa hii 🔁",
+  "Warm up tu buda, next one ni yangu 💪",
+  "Acha niskie pumzi, returning in 2 mins 😤",
+  "Bahati mbaya leo lakini kesho ni siku yangu 🙏",
+  "Ulikuwa karibu sana — one more spin! 🎯",
+  "Warm up spin done. Mbele tuna sherehe 🚀",
+  "Nimeamua nitakuwa winner leo usiku 🌙💸",
+  "Chapaa inakuja, trust the process 🤞",
+  "Almost! 8 matched — next spin niko tayari 💥",
+  "Hii mara next nitashinda — najua numbers zangu 😎",
+  "Nimeweka ngumi — next spin ni jackpot 🥊🎰",
+  "Wueh, bahati mbaya lakini siachi 😭🔥",
+  "Nairobi boys hawaachi — spinning again 🔄",
+  "One more try — feeling lucky leo 🍀",
+  "Hizi numbers zinanikaribia — one more spin! 😅",
+  "Poleni wenzangu, next one ni yangu 💯",
+  "7 out of 12 — getting warmer! 🔥",
+  "Sitaisha leo — target ni 20k minimum 💸",
+  "Harakisha — spinning again right now! ⚡",
+  "Practise spin — next one ni serious 🎯",
+];
+
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// Shuffled pools — randomized per session, no repeating cycle
+const _pool20 = shuffle(WINNING_MESSAGES_20K);
+const _pool25 = shuffle(WINNING_MESSAGES_25K);
+const _pool50 = shuffle(WINNING_MESSAGES_50K);
+const _poolNW = shuffle(NONWIN_POOL);
+let _i20 = 0, _i25 = 0, _i50 = 0, _iNW = 0;
+
 function generateOrganicMessage(matched: number): string {
-  // Pick comment only from the pool that matches the prize tier — no cross-contamination
   if (matched === 11) {
-    return WINNING_MESSAGES_50K[Math.floor(Math.random() * WINNING_MESSAGES_50K.length)];
+    return _pool50[(_i50++) % _pool50.length];
   }
   if (matched === 10) {
-    return WINNING_MESSAGES_25K[Math.floor(Math.random() * WINNING_MESSAGES_25K.length)];
+    return _pool25[(_i25++) % _pool25.length];
   }
   if (matched === 9) {
-    return WINNING_MESSAGES_20K[Math.floor(Math.random() * WINNING_MESSAGES_20K.length)];
+    return _pool20[(_i20++) % _pool20.length];
   }
-
-  const lowPhrases = [
-    "Warm up spin done ✌️", "Bahati iko karibu 😱", "Wueh, Bahati mbaya 😭",
-    "Getting closer 😭", "Trust the process 🤞", "Almost got half! Let's go again 💥",
-    "Chapaa inakuja soon, next spin is mine 💸", "One more spin, jackpot loading 🚀"
-  ];
-  return lowPhrases[Math.floor(Math.random() * lowPhrases.length)];
+  return _poolNW[(_iNW++) % _poolNW.length];
 }
 
 type FeedItem = { id: number; tag: string; city: string; matched: number; secondsAgo: number; msg: string; prizeKes?: number };
