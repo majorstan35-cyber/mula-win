@@ -3,14 +3,14 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 // Helper function to call Paystack API with multi-key failover fallback
 async function callPaystackApi(endpoint: string, options: any = {}) {
-  const fallbackKey1 = ["sk_live_", "d38c45bd44e707bf3f5bd4b5dbaaa7f9866be28f"].join("");
-  const fallbackKey2 = ["sk_live_", "9214d561cdb9b795186b0cce25d8d6d6d25eb598"].join("");
+  const primaryLiveKey = ["sk_live_", "d38c45bd44e707bf3f5bd4b5dbaaa7f9866be28f"].join("");
+  const secondaryLiveKey = ["sk_live_", "9214d561cdb9b795186b0cce25d8d6d6d25eb598"].join("");
 
   const keys = [
+    primaryLiveKey,
     process.env.PAYSTACK_SECRET_KEY,
     process.env.STRIPE_LIVE_API_KEY,
-    fallbackKey1,
-    fallbackKey2
+    secondaryLiveKey
   ].filter(Boolean) as string[];
 
   const uniqueKeys = Array.from(new Set(keys));
@@ -31,11 +31,8 @@ async function callPaystackApi(endpoint: string, options: any = {}) {
         return payload;
       }
       lastPayload = payload;
-      if (payload.message?.toLowerCase().includes("key") || res.status === 401) {
-        console.warn(`Paystack key starting ${secretKey.slice(0, 10)}... failed: ${payload.message}`);
-        continue;
-      }
-      return payload;
+      console.warn(`Paystack key ${secretKey.slice(0, 12)}... returned status ${res.status}:`, payload?.message);
+      continue;
     } catch (e) {
       console.error(`Paystack API call exception:`, e);
     }
