@@ -143,8 +143,13 @@ function PlayPage() {
   const [runId, setRunId] = useState<string | null>(null);
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Pre-fill phone from user profile
+  // Pre-fill phone from localStorage or user profile
   useEffect(() => {
+    const saved = localStorage.getItem("mula_saved_phone");
+    if (saved) {
+      setPhone(saved);
+      setPhoneLoaded(true);
+    }
     if (!user) return;
     supabase
       .from("profiles")
@@ -152,7 +157,7 @@ function PlayPage() {
       .eq("id", user.id)
       .maybeSingle()
       .then(({ data }) => {
-        if (data?.phone && !phoneLoaded) {
+        if (data?.phone && !saved) {
           setPhone(data.phone);
           setPhoneLoaded(true);
         }
@@ -173,8 +178,6 @@ function PlayPage() {
       })
       .catch(() => { });
   }, [runState]);
-
-  // Removed random generation so picks remain statically locked in.
 
   useEffect(() => () => {
     if (pollTimer.current) clearInterval(pollTimer.current);
@@ -221,7 +224,6 @@ function PlayPage() {
   }
 
   function resetForNextSpin() {
-    setPicks([]);
     setReveal([]);
     setResult(null);
     setErr(null);
@@ -236,37 +238,54 @@ function PlayPage() {
       return;
     }
     setErr(null);
-    setPayStep("phone");
-    setPayOpen(true);
+
+    // If phone is already saved and valid, initiate STK push directly for fast spin!
+    const digits = phone.replace(/\D/g, "");
+    if (digits.length >= 9) {
+      submitPhone();
+    } else {
+      setPayStep("phone");
+      setPayOpen(true);
+    }
   }
 
   async function submitPhone() {
-    // Validate phone before sending
     const digits = phone.replace(/\D/g, "");
     let normalized = digits;
     if (normalized.startsWith("0")) normalized = "254" + normalized.slice(1);
     else if (normalized.startsWith("7") || normalized.startsWith("1")) normalized = "254" + normalized;
     else if (normalized.startsWith("254")) { /* ok */ }
     else {
+      setPayStep("phone");
+      setPayOpen(true);
       setErr("Enter a valid Kenyan M-Pesa number (e.g. 0712 345 678)");
       return;
     }
     if (normalized.length !== 12) {
+      setPayStep("phone");
+      setPayOpen(true);
       setErr("Phone number must be 12 digits (e.g. 0712 345 678)");
       return;
     }
+
+    // Save phone for fast 1-click repeat spins
+    try { localStorage.setItem("mula_saved_phone", phone); } catch {}
+
     setErr(null);
     setStkMsg("");
     setRunning(true);
+    setPayOpen(true);
+    setPayStep("stk");
+
     try {
       const res = await startCharge({ data: { picks, phone } });
       setRunId(res.runId);
       setStkMsg(res.displayText);
-      setPayStep("stk");
       startPolling(res.runId);
     } catch (e: any) {
       setErr(e.message ?? "Could not start payment");
       setRunning(false);
+      setPayStep("phone");
     }
   }
 
@@ -500,12 +519,35 @@ function PlayPage() {
       {err && <div className="mt-4 rounded-lg border border-[color:var(--destructive)]/40 bg-[color:var(--destructive)]/10 px-3 py-2 text-xs text-[color:var(--destructive)]">{err}</div>}
 
       {result ? (
-        <button
-          onClick={resetForNextSpin}
-          className="bg-gold-gradient shadow-gold mt-6 w-full rounded-2xl py-5 font-display text-2xl font-black text-[oklch(0.12_0.01_60)]"
-        >
-          Play again
-        </button>
+        <div className="mt-6 space-y-2">
+          <button
+            onClick={() => {
+              resetForNextSpin();
+              setTimeout(() => openPay(), 50);
+            }}
+            className="animate-gold-pulse bg-gold-gradient shadow-gold w-full rounded-2xl py-5 font-display text-2xl font-black text-[oklch(0.12_0.01_60)] transition active:scale-95"
+          >
+            🎰 SPIN AGAIN — KES 200
+          </button>
+          <div className="flex items-center justify-between text-xs px-2">
+            <button
+              onClick={resetForNextSpin}
+              className="text-[color:var(--muted-foreground)] hover:text-white underline"
+            >
+              Change numbers
+            </button>
+            <button
+              onClick={() => {
+                resetForNextSpin();
+                setPayStep("phone");
+                setPayOpen(true);
+              }}
+              className="text-[color:var(--muted-foreground)] hover:text-white underline"
+            >
+              Change phone ({phone})
+            </button>
+          </div>
+        </div>
       ) : (
         <button
           onClick={openPay}
