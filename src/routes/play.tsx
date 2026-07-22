@@ -25,48 +25,54 @@ const CITIES = [
   "Ruiru", "Kiambu", "Athi River", "Nanyuki", "Kajiado", "Migori", "Homa Bay", "Busia",
 ];
 
+const WINNING_MESSAGES = [
+  "Stay guided omera! KES 20,000 confirmed for Kisumu! 🎉🔥",
+  "Eeeh Ngai fafa 20,000 kwa Mpesa hapo hapo! Njuguna ameamini! 🙌💸",
+  "Omwabo! Kisii town represent! 25,000 payout received! 🤑💃",
+  "Chebet happy 25,000 loaded! Eldoret champion! 🏃💨🥳",
+  "Omwami! Kakamega power 20,000 is real! 💪🎉",
+  "Ero! Mpesa alert 20,000 landed live on phone! 📱✨",
+  "Wairimu happiness overloaded! 50,000 won clean! 💎🚀",
+  "Mogaka joyful! 25k instant payout alert! 🍀🥳",
+  "Kipchoge speed! 20,000 credited live! 🔥🇰🇪",
+  "Webuye represent! 25,000 alert received wuuuh! 🎉💸",
+  "Wuod Baba! 50,000 in the bag! Siaya power! 🚀🎉",
+  "Ngai fafa 25,000 loaded instant! Karatina vibes! 🙌💰",
+  "Stay guided I won 20,000! Machakos represent! 🇰🇪🎉",
+  "Manze 25k alert just popped on my phone! Thika power! 📱🔥",
+  "No way! Matched 11/12! 50,000 jackpot winner here! 💎👑",
+  "Mombasa raha! 20,000 credited live on Mpesa! 🌊💸",
+];
+
 function generateOrganicMessage(matched: number): string {
-  const highPhrases = [
-    "Almost!", "Oh my god so close", "Missed by 2 numbers!", "Ayaya, missed by one",
-    "No way, matched 10", "My heart stopped", "I remained with only two", "Jackpot loading for sure"
-  ];
-  const midPhrases = [
-    "Getting closer", "Feeling lucky today", "Let's go again", "Almost got half",
-    "Chapaa inakuja soon", "Not bad, let's keep pushing", "Bahati iko karibu", "Next spin is mine"
-  ];
+  if (matched >= 9) {
+    return WINNING_MESSAGES[Math.floor(Math.random() * WINNING_MESSAGES.length)];
+  }
+
   const lowPhrases = [
-    "Missed by a whisker", "We try again", "Bahati mbaya", "Ah, just missed it",
-    "Nakuja tena", "Trust the process", "One more spin", "Warm up spin done"
+    "Warm up spin done ✌️", "Bahati iko karibu 😱", "Wueh, Bahati mbaya 😭",
+    "Getting closer 😭", "Trust the process 🤞", "Almost got half! Let's go again 💥",
+    "Chapaa inakuja soon, next spin is mine 💸", "One more spin, jackpot loading 🚀"
   ];
-
-  const pool = matched >= 10 ? highPhrases : matched >= 7 ? midPhrases : lowPhrases;
-  const base = pool[Math.floor(Math.random() * pool.length)];
-
-  // Randomly add emojis or particles
-  const emojis = ["", "!", "!!", "...", " 😭", " 🔥", " 🍀", " 💸", " 😤", " 🚀", " 🤞", " 💔", " 😱"];
-  const randomEmoji = emojis[Math.floor(Math.random() * emojis.length)];
-
-  // Randomly start with Swahili expressions
-  const swahiliStart = ["", "", "", "Manze, ", "Wueh, ", "Ala! ", "Enyewe, ", "Aish, "];
-  const start = swahiliStart[Math.floor(Math.random() * swahiliStart.length)];
-
-  return `${start}${base}${randomEmoji}`;
+  return lowPhrases[Math.floor(Math.random() * lowPhrases.length)];
 }
 
-type FeedItem = { id: number; tag: string; city: string; matched: number; secondsAgo: number; msg: string };
+type FeedItem = { id: number; tag: string; city: string; matched: number; secondsAgo: number; msg: string; prizeKes?: number };
 
 function randomFeedItem(id: number, secondsAgo = 0): FeedItem {
-  // A weighted random selection for realistic match distribution
   const rand = Math.random();
   let matched = 5;
-  if (rand < 0.25) matched = 4;
-  else if (rand < 0.50) matched = 5;
-  else if (rand < 0.70) matched = 6;
-  else if (rand < 0.85) matched = 7;
-  else if (rand < 0.93) matched = 8;
-  else if (rand < 0.97) matched = 9;
-  else if (rand < 0.995) matched = 10;
-  else matched = 11;
+  let prizeKes: number | undefined = undefined;
+
+  // Win ratio: ~35% of entries win prizes (9/12, 10/12, 11/12)
+  if (rand < 0.20) matched = 4;
+  else if (rand < 0.40) matched = 5;
+  else if (rand < 0.55) matched = 6;
+  else if (rand < 0.65) matched = 7;
+  else if (rand < 0.75) matched = 8;
+  else if (rand < 0.90) { matched = 9; prizeKes = 20000; }
+  else if (rand < 0.97) { matched = 10; prizeKes = 25000; }
+  else { matched = 11; prizeKes = 50000; }
 
   return {
     id,
@@ -74,6 +80,7 @@ function randomFeedItem(id: number, secondsAgo = 0): FeedItem {
     city: CITIES[Math.floor(Math.random() * CITIES.length)],
     matched,
     secondsAgo,
+    prizeKes,
     msg: generateOrganicMessage(matched),
   };
 }
@@ -143,13 +150,8 @@ function PlayPage() {
   const [runId, setRunId] = useState<string | null>(null);
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Pre-fill phone from localStorage or user profile
+  // Pre-fill phone from user profile
   useEffect(() => {
-    const saved = localStorage.getItem("mula_saved_phone");
-    if (saved) {
-      setPhone(saved);
-      setPhoneLoaded(true);
-    }
     if (!user) return;
     supabase
       .from("profiles")
@@ -157,7 +159,7 @@ function PlayPage() {
       .eq("id", user.id)
       .maybeSingle()
       .then(({ data }) => {
-        if (data?.phone && !saved) {
+        if (data?.phone && !phoneLoaded) {
           setPhone(data.phone);
           setPhoneLoaded(true);
         }
@@ -178,6 +180,8 @@ function PlayPage() {
       })
       .catch(() => { });
   }, [runState]);
+
+  // Removed random generation so picks remain statically locked in.
 
   useEffect(() => () => {
     if (pollTimer.current) clearInterval(pollTimer.current);
@@ -224,6 +228,7 @@ function PlayPage() {
   }
 
   function resetForNextSpin() {
+    setPicks([]);
     setReveal([]);
     setResult(null);
     setErr(null);
@@ -238,54 +243,37 @@ function PlayPage() {
       return;
     }
     setErr(null);
-
-    // If phone is already saved and valid, initiate STK push directly for fast spin!
-    const digits = phone.replace(/\D/g, "");
-    if (digits.length >= 9) {
-      submitPhone();
-    } else {
-      setPayStep("phone");
-      setPayOpen(true);
-    }
+    setPayStep("phone");
+    setPayOpen(true);
   }
 
   async function submitPhone() {
+    // Validate phone before sending
     const digits = phone.replace(/\D/g, "");
     let normalized = digits;
     if (normalized.startsWith("0")) normalized = "254" + normalized.slice(1);
     else if (normalized.startsWith("7") || normalized.startsWith("1")) normalized = "254" + normalized;
     else if (normalized.startsWith("254")) { /* ok */ }
     else {
-      setPayStep("phone");
-      setPayOpen(true);
       setErr("Enter a valid Kenyan M-Pesa number (e.g. 0712 345 678)");
       return;
     }
     if (normalized.length !== 12) {
-      setPayStep("phone");
-      setPayOpen(true);
       setErr("Phone number must be 12 digits (e.g. 0712 345 678)");
       return;
     }
-
-    // Save phone for fast 1-click repeat spins
-    try { localStorage.setItem("mula_saved_phone", phone); } catch {}
-
     setErr(null);
     setStkMsg("");
     setRunning(true);
-    setPayOpen(true);
-    setPayStep("stk");
-
     try {
       const res = await startCharge({ data: { picks, phone } });
       setRunId(res.runId);
       setStkMsg(res.displayText);
+      setPayStep("stk");
       startPolling(res.runId);
     } catch (e: any) {
       setErr(e.message ?? "Could not start payment");
       setRunning(false);
-      setPayStep("phone");
     }
   }
 
@@ -334,7 +322,7 @@ function PlayPage() {
           setErr("Payment failed or was cancelled");
           setRunning(false);
           setPayStep("phone");
-        } else if (elapsed > 300) {
+        } else if (elapsed > 180) {
           if (pollTimer.current) clearInterval(pollTimer.current);
           setErr("Timed out waiting for M-Pesa confirmation");
           setRunning(false);
@@ -387,10 +375,10 @@ function PlayPage() {
                 <div
                   key={i}
                   className={`flex aspect-square items-center justify-center rounded-xl font-display text-lg font-bold transition-all duration-300 ${isMatched
-                      ? "border-2 border-[color:var(--gold)] bg-gold-gradient text-[oklch(0.14_0.01_60)] shadow-gold scale-105"
-                      : result
-                        ? "border border-[color:var(--border)] bg-[color:var(--card)]/40 text-[color:var(--muted-foreground)] opacity-50"
-                        : "border border-[color:var(--gold)]/50 bg-[color:var(--background)] text-[color:var(--gold-soft)] shadow-inner"
+                    ? "border-2 border-[color:var(--gold)] bg-gold-gradient text-[oklch(0.14_0.01_60)] shadow-gold scale-105"
+                    : result
+                      ? "border border-[color:var(--border)] bg-[color:var(--card)]/40 text-[color:var(--muted-foreground)] opacity-50"
+                      : "border border-[color:var(--gold)]/50 bg-[color:var(--background)] text-[color:var(--gold-soft)] shadow-inner"
                     }`}
                 >
                   {n}
@@ -418,10 +406,10 @@ function PlayPage() {
         {/* Casino light card with glowing border */}
         <div
           className={`relative overflow-hidden rounded-2xl border p-4 transition-all duration-700 ${running
-              ? "animate-casino-border border-[color:var(--gold)]/60 bg-[color:var(--card)]"
-              : result
-                ? "border-[color:var(--gold)]/40 bg-[color:var(--card)]/80"
-                : "border-[color:var(--border)]/40 bg-[color:var(--card)]/50"
+            ? "animate-casino-border border-[color:var(--gold)]/60 bg-[color:var(--card)]"
+            : result
+              ? "border-[color:var(--gold)]/40 bg-[color:var(--card)]/80"
+              : "border-[color:var(--border)]/40 bg-[color:var(--card)]/50"
             }`}
         >
           {/* Scanner sweep line - only while spinning */}
@@ -474,8 +462,8 @@ function PlayPage() {
                 <div
                   key={i}
                   className={`flex aspect-square items-center justify-center rounded-xl font-display text-lg font-bold animate-number-flip transition-all duration-300 ${isMatch
-                      ? "border-2 border-[color:var(--gold)] bg-gold-gradient text-[oklch(0.14_0.01_60)] shadow-gold scale-105 animate-light-flicker"
-                      : "border border-[color:var(--border)]/60 bg-[color:var(--card)] text-[color:var(--foreground)]/60"
+                    ? "border-2 border-[color:var(--gold)] bg-gold-gradient text-[oklch(0.14_0.01_60)] shadow-gold scale-105 animate-light-flicker"
+                    : "border border-[color:var(--border)]/60 bg-[color:var(--card)] text-[color:var(--foreground)]/60"
                     }`}
                 >
                   {drawnNum}
@@ -519,42 +507,19 @@ function PlayPage() {
       {err && <div className="mt-4 rounded-lg border border-[color:var(--destructive)]/40 bg-[color:var(--destructive)]/10 px-3 py-2 text-xs text-[color:var(--destructive)]">{err}</div>}
 
       {result ? (
-        <div className="mt-6 space-y-2">
-          <button
-            onClick={() => {
-              resetForNextSpin();
-              setTimeout(() => openPay(), 50);
-            }}
-            className="animate-gold-pulse bg-gold-gradient shadow-gold w-full rounded-2xl py-5 font-display text-2xl font-black text-[oklch(0.12_0.01_60)] transition active:scale-95"
-          >
-            🎰 SPIN AGAIN — KES 200
-          </button>
-          <div className="flex items-center justify-between text-xs px-2">
-            <button
-              onClick={resetForNextSpin}
-              className="text-[color:var(--muted-foreground)] hover:text-white underline"
-            >
-              Change numbers
-            </button>
-            <button
-              onClick={() => {
-                resetForNextSpin();
-                setPayStep("phone");
-                setPayOpen(true);
-              }}
-              className="text-[color:var(--muted-foreground)] hover:text-white underline"
-            >
-              Change phone ({phone})
-            </button>
-          </div>
-        </div>
+        <button
+          onClick={resetForNextSpin}
+          className="bg-gold-gradient shadow-gold mt-6 w-full rounded-2xl py-5 font-display text-2xl font-black text-[oklch(0.12_0.01_60)]"
+        >
+          Play again
+        </button>
       ) : (
         <button
           onClick={openPay}
           disabled={running || !ready}
           className={`mt-6 w-full rounded-2xl py-5 font-display text-2xl font-black transition ${ready && !running
-              ? "animate-gold-pulse bg-gold-gradient shadow-gold text-[oklch(0.12_0.01_60)]"
-              : "bg-[color:var(--card)] text-[color:var(--muted-foreground)] border border-[color:var(--border)]"
+            ? "animate-gold-pulse bg-gold-gradient shadow-gold text-[oklch(0.12_0.01_60)]"
+            : "bg-[color:var(--card)] text-[color:var(--muted-foreground)] border border-[color:var(--border)]"
             }`}
         >
           {running ? "Drawing…" : "SPIN & WIN — KES 200"}
@@ -585,10 +550,16 @@ function PlayPage() {
                   {f.city} · {formatAgo(f.secondsAgo)} · <span className="italic">"{f.msg}"</span>
                 </div>
               </div>
-              <div className="text-right">
+              <div className="text-right flex flex-col items-end">
                 <div className="font-display text-xl font-bold text-[color:var(--gold)]">
                   {f.matched}<span className="text-xs text-[color:var(--muted-foreground)]">/{need}</span>
                 </div>
+                {f.prizeKes ? (
+                  <div className="mt-1 flex items-center gap-1 rounded-full border border-emerald-500/60 bg-emerald-500/20 px-2 py-0.5 text-[10px] font-black text-emerald-300 shadow-[0_0_10px_rgba(16,185,129,0.3)] animate-pulse">
+                    <span>🎉</span>
+                    <span>+ KES {f.prizeKes.toLocaleString()}</span>
+                  </div>
+                ) : null}
               </div>
             </li>
           ))}
