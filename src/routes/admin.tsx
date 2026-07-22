@@ -71,7 +71,7 @@ function AdminPage() {
   const TABS: { id: Tab; label: string; count?: number }[] = [
     { id: "overview", label: "⚙️ Config" },
     { id: "payments", label: "✅ Paid", count: m.totalPaidCount || data.payments.paid.length },
-    { id: "failed", label: "❌ Failed (PIN Entered)", count: data.payments.failed.length },
+    { id: "failed", label: "❌ Failed (PIN Declined)", count: data.payments.failed.length },
     { id: "cancelled", label: "🚫 Cancelled (No PIN)", count: data.payments.cancelled.length },
     { id: "pending", label: "⏳ Pending", count: data.payments.pending.length },
     { id: "runs", label: "🎰 Runs", count: m.totalSpins },
@@ -80,7 +80,7 @@ function AdminPage() {
     { id: "audit", label: "🔍 Audit Log", count: data.auditLog.length },
   ];
 
-  const filterPayments = (list: any[]) => list
+  const filterPayments = (list: any[]) => (list ?? [])
     .sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
     .filter((p: any) => !search || p.phone?.includes(search) || p.mpesa_checkout_request_id?.includes(search));
 
@@ -89,7 +89,7 @@ function AdminPage() {
     setReconcileMsg(null);
     try {
       const res = await runReconcile();
-      setReconcileMsg(`Reconciled ${res.reconciled} items: ${res.settled} settled as PAID, ${res.failed} marked as FAILED.`);
+      setReconcileMsg(`Reconciled ${res.reconciled} items: ${res.settled} settled as PAID, ${res.failed || 0} FAILED, ${res.cancelled || 0} CANCELLED.`);
       await reload();
     } catch (e: any) {
       setReconcileMsg(`Error: ${e.message}`);
@@ -126,12 +126,12 @@ function AdminPage() {
       )}
       <h1 className="font-display text-3xl font-bold mb-2">Mula Admin Dashboard</h1>
 
-      {/* Interactive Top Buttons Grid (Clickable Metrics) */}
+      {/* Interactive Top Buttons Grid (Clickable Metrics with Colors) */}
       <section className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
         <MetricBtn onClick={() => setTab("payments")} label="Revenue KES" value={`${m.totalRevenue.toLocaleString()}`} accent active={tab === "payments"} />
         <MetricBtn onClick={() => setTab("payments")} label="Paid Spins" value={String(m.totalPaidCount || data.payments.paid.length)} accent active={tab === "payments"} />
         <MetricBtn onClick={() => setTab("failed")} label="Failed Pays" value={String(data.payments.failed.length)} red active={tab === "failed"} />
-        <MetricBtn onClick={() => setTab("cancelled")} label="Cancelled" value={String(data.payments.cancelled.length)} active={tab === "cancelled"} />
+        <MetricBtn onClick={() => setTab("cancelled")} label="Cancelled" value={String(data.payments.cancelled.length)} orange active={tab === "cancelled"} />
         <MetricBtn onClick={() => setTab("pending")} label="Pending" value={String(data.payments.pending.length)} yellow active={tab === "pending"} />
         <MetricBtn onClick={() => setTab("runs")} label="Total Runs" value={String(m.totalSpins)} active={tab === "runs"} />
         <MetricBtn onClick={() => setTab("overview")} label="Net Margin" value={m.netMargin.toLocaleString()} accent active={tab === "overview"} />
@@ -199,15 +199,16 @@ function AdminPage() {
         </section>
       )}
 
-      {/* PAID PAYMENTS TAB */}
+      {/* PAID PAYMENTS TAB (Green) */}
       {tab === "payments" && (
         <section className="mt-4 rounded-2xl border border-emerald-500/20 bg-[color:var(--card)]/50 p-5">
-          <h2 className="font-display text-xl font-bold mb-1 text-emerald-400">✅ Successful Payments</h2>
+          <h2 className="font-display text-xl font-bold mb-1 text-emerald-400">✅ Successful Payments (Winners)</h2>
           <p className="text-xs text-[color:var(--muted-foreground)] mb-4">{filterPayments(data.payments.paid).length} paid transactions</p>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-left text-[color:var(--muted-foreground)] border-b border-[color:var(--border)]">
+                  <th className="pb-2 pr-4">Status</th>
                   <th className="pb-2 pr-4">Phone</th>
                   <th className="pb-2 pr-4">Amount</th>
                   <th className="pb-2 pr-4">Reference</th>
@@ -218,6 +219,11 @@ function AdminPage() {
               <tbody className="divide-y divide-[color:var(--border)]">
                 {filterPayments(data.payments.paid).map((p: any) => (
                   <tr key={p.id}>
+                    <td className="py-2 pr-4">
+                      <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-emerald-500/20 text-emerald-400">
+                        PAID
+                      </span>
+                    </td>
                     <td className="py-2 pr-4 font-mono">{p.phone || "—"}</td>
                     <td className="py-2 pr-4 text-emerald-400 font-semibold">KES {p.amount_kes}</td>
                     <td className="py-2 pr-4 font-mono text-[10px] text-[color:var(--muted-foreground)] max-w-[120px] truncate">{p.mpesa_checkout_request_id || "—"}</td>
@@ -232,17 +238,18 @@ function AdminPage() {
         </section>
       )}
 
-      {/* FAILED PAYMENTS TAB (PIN Entered but declined) */}
+      {/* FAILED PAYMENTS TAB (Red - PIN entered but declined by M-Pesa/bank) */}
       {tab === "failed" && (
         <section className="mt-4 rounded-2xl border border-red-500/20 bg-[color:var(--card)]/50 p-5">
           <h2 className="font-display text-xl font-bold mb-1 text-red-400">❌ Failed Payments (PIN Entered / M-Pesa Declined)</h2>
           <p className="text-xs text-[color:var(--muted-foreground)] mb-4">
-            These are attempts where the M-Pesa prompt was answered but payment failed (e.g. wrong PIN, insufficient funds, Safaricom decline).
+            M-Pesa prompt was answered with PIN, but payment was declined by M-Pesa or the bank (e.g. wrong PIN, insufficient funds).
           </p>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-left text-[color:var(--muted-foreground)] border-b border-[color:var(--border)]">
+                  <th className="pb-2 pr-4">Status</th>
                   <th className="pb-2 pr-4">Phone</th>
                   <th className="pb-2 pr-4">Amount</th>
                   <th className="pb-2 pr-4">Reference</th>
@@ -252,6 +259,11 @@ function AdminPage() {
               <tbody className="divide-y divide-[color:var(--border)]">
                 {filterPayments(data.payments.failed).map((p: any) => (
                   <tr key={p.id}>
+                    <td className="py-2 pr-4">
+                      <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-red-500/20 text-red-400">
+                        FAILED
+                      </span>
+                    </td>
                     <td className="py-2 pr-4 font-mono">{p.phone || "—"}</td>
                     <td className="py-2 pr-4 text-red-400 font-semibold">KES {p.amount_kes}</td>
                     <td className="py-2 pr-4 font-mono text-[10px] text-[color:var(--muted-foreground)] max-w-[140px] truncate">{p.mpesa_checkout_request_id || "—"}</td>
@@ -265,17 +277,18 @@ function AdminPage() {
         </section>
       )}
 
-      {/* CANCELLED PAYMENTS TAB (No PIN / Abandoned / Unprompted) */}
+      {/* CANCELLED PAYMENTS TAB (Orange - User Cancelled / Prompt Dismissed / Expired) */}
       {tab === "cancelled" && (
-        <section className="mt-4 rounded-2xl border border-gray-500/20 bg-[color:var(--card)]/50 p-5">
-          <h2 className="font-display text-xl font-bold mb-1 text-gray-300">🚫 Cancelled Payments (No PIN / Prompt Dismissed)</h2>
+        <section className="mt-4 rounded-2xl border border-orange-500/20 bg-[color:var(--card)]/50 p-5">
+          <h2 className="font-display text-xl font-bold mb-1 text-orange-400">🚫 Cancelled Payments (Orange - No PIN / Dismissed)</h2>
           <p className="text-xs text-[color:var(--muted-foreground)] mb-4">
-            These requests were cancelled because no PIN was entered, prompt was dismissed, or user exited before typing PIN.
+            Payment attempts where user cancelled, dismissed the prompt, or did not enter M-Pesa PIN.
           </p>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-left text-[color:var(--muted-foreground)] border-b border-[color:var(--border)]">
+                  <th className="pb-2 pr-4">Status</th>
                   <th className="pb-2 pr-4">Phone</th>
                   <th className="pb-2 pr-4">Amount</th>
                   <th className="pb-2 pr-4">Reference</th>
@@ -285,8 +298,13 @@ function AdminPage() {
               <tbody className="divide-y divide-[color:var(--border)]">
                 {filterPayments(data.payments.cancelled).map((p: any) => (
                   <tr key={p.id}>
+                    <td className="py-2 pr-4">
+                      <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-orange-500/20 text-orange-400">
+                        CANCELLED
+                      </span>
+                    </td>
                     <td className="py-2 pr-4 font-mono">{p.phone || "—"}</td>
-                    <td className="py-2 pr-4 text-gray-400 font-semibold">KES {p.amount_kes}</td>
+                    <td className="py-2 pr-4 text-orange-400 font-semibold">KES {p.amount_kes}</td>
                     <td className="py-2 pr-4 font-mono text-[10px] text-[color:var(--muted-foreground)] max-w-[140px] truncate">{p.mpesa_checkout_request_id || "—"}</td>
                     <td className="py-2 text-[color:var(--muted-foreground)]">{new Date(p.created_at).toLocaleString()}</td>
                   </tr>
@@ -298,15 +316,16 @@ function AdminPage() {
         </section>
       )}
 
-      {/* PENDING PAYMENTS TAB */}
+      {/* PENDING PAYMENTS TAB (Yellow) */}
       {tab === "pending" && (
         <section className="mt-4 rounded-2xl border border-yellow-500/20 bg-[color:var(--card)]/50 p-5">
-          <h2 className="font-display text-xl font-bold mb-1 text-yellow-400">⏳ Pending Payments</h2>
-          <p className="text-xs text-[color:var(--muted-foreground)] mb-4">Active payments currently waiting for M-Pesa PIN input.</p>
+          <h2 className="font-display text-xl font-bold mb-1 text-yellow-400">⏳ Pending Payments (Yellow)</h2>
+          <p className="text-xs text-[color:var(--muted-foreground)] mb-4">Active payments currently waiting for M-Pesa PIN input on phone.</p>
           <div className="overflow-x-auto">
             <table className="w-full text-xs">
               <thead>
                 <tr className="text-left text-[color:var(--muted-foreground)] border-b border-[color:var(--border)]">
+                  <th className="pb-2 pr-4">Status</th>
                   <th className="pb-2 pr-4">Phone</th>
                   <th className="pb-2 pr-4">Amount</th>
                   <th className="pb-2 pr-4">Reference</th>
@@ -319,6 +338,11 @@ function AdminPage() {
                   const ageMins = Math.floor((Date.now() - new Date(p.created_at).getTime()) / 60000);
                   return (
                     <tr key={p.id}>
+                      <td className="py-2 pr-4">
+                        <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold bg-yellow-500/20 text-yellow-400">
+                          PENDING
+                        </span>
+                      </td>
                       <td className="py-2 pr-4 font-mono">{p.phone || "—"}</td>
                       <td className="py-2 pr-4 text-yellow-400 font-semibold">KES {p.amount_kes}</td>
                       <td className="py-2 pr-4 font-mono text-[10px] text-[color:var(--muted-foreground)] max-w-[120px] truncate">{p.mpesa_checkout_request_id || "—"}</td>
@@ -326,9 +350,9 @@ function AdminPage() {
                       <td className="py-2">
                         <button
                           onClick={() => forceFailPayment({ data: { paymentId: p.id, runId: p.run_id } }).then(reload)}
-                          className="rounded px-2 py-0.5 text-[10px] bg-red-500/20 text-red-400 hover:bg-red-500/30"
+                          className="rounded px-2 py-0.5 text-[10px] bg-orange-500/20 text-orange-400 hover:bg-orange-500/30"
                         >
-                          Force Fail
+                          Cancel Payment
                         </button>
                       </td>
                     </tr>
@@ -364,7 +388,7 @@ function AdminPage() {
                         r.status === "failed" ? "bg-red-500/20 text-red-400" :
                         "bg-yellow-500/20 text-yellow-400"
                       }`}>
-                        {r.status.toUpperCase()}
+                        {r.status === "drawn" ? "DRAWN (WINNER)" : r.status.toUpperCase()}
                       </span>
                     </td>
                     <td className="py-2 pr-4 font-mono">{r.matched_count ?? "—"}/12</td>
@@ -458,6 +482,7 @@ function MetricBtn({
   value,
   accent,
   red,
+  orange,
   yellow,
   active,
   onClick
@@ -466,6 +491,7 @@ function MetricBtn({
   value: string;
   accent?: boolean;
   red?: boolean;
+  orange?: boolean;
   yellow?: boolean;
   active?: boolean;
   onClick: () => void;
@@ -481,7 +507,7 @@ function MetricBtn({
     >
       <div className="text-[9px] uppercase tracking-widest text-[color:var(--muted-foreground)] leading-tight">{label}</div>
       <div className={`mt-1 font-display text-xl font-bold ${
-        accent ? "text-[color:var(--gold)]" : red ? "text-red-400" : yellow ? "text-yellow-400" : ""
+        accent ? "text-[color:var(--gold)]" : red ? "text-red-400" : orange ? "text-orange-400" : yellow ? "text-yellow-400" : ""
       }`}>
         {value}
       </div>

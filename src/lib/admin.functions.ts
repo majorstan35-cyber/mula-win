@@ -15,17 +15,18 @@ export const reconcilePendingPayments = createServerFn({ method: "POST" })
         .eq("status", "pending");
 
       if (!pendingList || pendingList.length === 0) {
-        return { reconciled: 0, settled: 0, failed: 0 };
+        return { reconciled: 0, settled: 0, failed: 0, cancelled: 0 };
       }
 
       let settledCount = 0;
       let failedCount = 0;
+      let cancelledCount = 0;
 
       for (const p of pendingList as any[]) {
         if (!p.mpesa_checkout_request_id) {
           await supabaseAdmin.from("payments").update({ status: "cancelled" }).eq("id", p.id);
           if (p.run_id) await supabaseAdmin.from("runs").update({ status: "failed" }).eq("id", p.run_id);
-          failedCount++;
+          cancelledCount++;
           continue;
         }
 
@@ -53,18 +54,16 @@ export const reconcilePendingPayments = createServerFn({ method: "POST" })
             }
             settledCount++;
             console.log(`[Reconcile] Pending payment ${p.id} settled as PAID!`);
+          } else if (pStatus === "failed") {
+            await supabaseAdmin.from("payments").update({ status: "failed", raw_callback: payload }).eq("id", p.id);
+            if (p.run_id) await supabaseAdmin.from("runs").update({ status: "failed" }).eq("id", p.run_id);
+            failedCount++;
           } else {
             const ageMins = (Date.now() - new Date(p.created_at).getTime()) / 60000;
-            if (pStatus === "failed") {
-              // PIN entered but declined / insufficient funds / failed at bank
-              await supabaseAdmin.from("payments").update({ status: "failed", raw_callback: payload }).eq("id", p.id);
-              if (p.run_id) await supabaseAdmin.from("runs").update({ status: "failed" }).eq("id", p.run_id);
-              failedCount++;
-            } else if (pStatus === "abandoned" || ageMins > 5) {
-              // Dismissed or no PIN entered within timeout -> cancelled
+            if (pStatus === "abandoned" || ageMins > 5) {
               await supabaseAdmin.from("payments").update({ status: "cancelled", raw_callback: payload }).eq("id", p.id);
               if (p.run_id) await supabaseAdmin.from("runs").update({ status: "failed" }).eq("id", p.run_id);
-              failedCount++;
+              cancelledCount++;
             }
           }
         } catch (err: any) {
@@ -72,12 +71,12 @@ export const reconcilePendingPayments = createServerFn({ method: "POST" })
           if (ageMins > 5) {
             await supabaseAdmin.from("payments").update({ status: "cancelled" }).eq("id", p.id);
             if (p.run_id) await supabaseAdmin.from("runs").update({ status: "failed" }).eq("id", p.run_id);
-            failedCount++;
+            cancelledCount++;
           }
         }
       }
 
-      return { reconciled: pendingList.length, settled: settledCount, failed: failedCount };
+      return { reconciled: pendingList.length, settled: settledCount, failed: failedCount, cancelled: cancelledCount };
     } catch (err: any) {
       console.error("reconcilePendingPayments error:", err.message);
       throw err;
@@ -339,7 +338,7 @@ export const setUserBlocked = createServerFn({ method: "POST" })
     }
   });
 
-// Manually mark a pending payment as failed (admin override)
+// Manually mark a pending payment as cancelled (admin override)
 export const markPaymentFailed = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .validator((data: { paymentId: string; runId?: string }) => data)
@@ -349,7 +348,7 @@ export const markPaymentFailed = createServerFn({ method: "POST" })
 
       await supabaseAdmin
         .from("payments")
-        .update({ status: "failed" })
+        .update({ status: "cancelled" })
         .eq("id", data.paymentId);
 
       if (data.runId) {
