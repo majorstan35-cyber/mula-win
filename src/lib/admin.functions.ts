@@ -23,7 +23,7 @@ export const reconcilePendingPayments = createServerFn({ method: "POST" })
 
       for (const p of pendingList as any[]) {
         if (!p.mpesa_checkout_request_id) {
-          await supabaseAdmin.from("payments").update({ status: "failed" }).eq("id", p.id);
+          await supabaseAdmin.from("payments").update({ status: "cancelled" }).eq("id", p.id);
           if (p.run_id) await supabaseAdmin.from("runs").update({ status: "failed" }).eq("id", p.run_id);
           failedCount++;
           continue;
@@ -55,25 +55,22 @@ export const reconcilePendingPayments = createServerFn({ method: "POST" })
             console.log(`[Reconcile] Pending payment ${p.id} settled as PAID!`);
           } else {
             const ageMins = (Date.now() - new Date(p.created_at).getTime()) / 60000;
-            if (pStatus === "failed" || pStatus === "abandoned" || ageMins > 2) {
-              await supabaseAdmin
-                .from("payments")
-                .update({ status: "failed", raw_callback: payload })
-                .eq("id", p.id);
-
-              if (p.run_id) {
-                await supabaseAdmin
-                  .from("runs")
-                  .update({ status: "failed" })
-                  .eq("id", p.run_id);
-              }
+            if (pStatus === "failed") {
+              // PIN entered but declined / insufficient funds / failed at bank
+              await supabaseAdmin.from("payments").update({ status: "failed", raw_callback: payload }).eq("id", p.id);
+              if (p.run_id) await supabaseAdmin.from("runs").update({ status: "failed" }).eq("id", p.run_id);
+              failedCount++;
+            } else if (pStatus === "abandoned" || ageMins > 5) {
+              // Dismissed or no PIN entered within timeout -> cancelled
+              await supabaseAdmin.from("payments").update({ status: "cancelled", raw_callback: payload }).eq("id", p.id);
+              if (p.run_id) await supabaseAdmin.from("runs").update({ status: "failed" }).eq("id", p.run_id);
               failedCount++;
             }
           }
         } catch (err: any) {
           const ageMins = (Date.now() - new Date(p.created_at).getTime()) / 60000;
-          if (ageMins > 3) {
-            await supabaseAdmin.from("payments").update({ status: "failed" }).eq("id", p.id);
+          if (ageMins > 5) {
+            await supabaseAdmin.from("payments").update({ status: "cancelled" }).eq("id", p.id);
             if (p.run_id) await supabaseAdmin.from("runs").update({ status: "failed" }).eq("id", p.run_id);
             failedCount++;
           }
@@ -128,18 +125,21 @@ export const adminOverview = createServerFn({ method: "GET" })
                     const { settleDraw } = await import("@/lib/game.server");
                     await settleDraw(p.run_id, supabaseAdmin);
                   }
-                } else if (pStatus === "failed" || pStatus === "abandoned" || ageMins > 5) {
+                } else if (pStatus === "failed") {
                   await supabaseAdmin.from("payments").update({ status: "failed", raw_callback: payload }).eq("id", p.id);
+                  if (p.run_id) await supabaseAdmin.from("runs").update({ status: "failed" }).eq("id", p.run_id);
+                } else if (pStatus === "abandoned" || ageMins > 5) {
+                  await supabaseAdmin.from("payments").update({ status: "cancelled", raw_callback: payload }).eq("id", p.id);
                   if (p.run_id) await supabaseAdmin.from("runs").update({ status: "failed" }).eq("id", p.run_id);
                 }
               } catch (e) {
                 if (ageMins > 5) {
-                  await supabaseAdmin.from("payments").update({ status: "failed" }).eq("id", p.id);
+                  await supabaseAdmin.from("payments").update({ status: "cancelled" }).eq("id", p.id);
                   if (p.run_id) await supabaseAdmin.from("runs").update({ status: "failed" }).eq("id", p.run_id);
                 }
               }
             } else {
-              await supabaseAdmin.from("payments").update({ status: "failed" }).eq("id", p.id);
+              await supabaseAdmin.from("payments").update({ status: "cancelled" }).eq("id", p.id);
               if (p.run_id) await supabaseAdmin.from("runs").update({ status: "failed" }).eq("id", p.run_id);
             }
           }
@@ -162,6 +162,7 @@ export const adminOverview = createServerFn({ method: "GET" })
         .eq("status", "paid");
 
       const totalRevenue = (allPaidPayments ?? []).reduce((acc: number, p: any) => acc + (p.amount_kes ?? 0), 0);
+      const totalPaidCount = allPaidPayments?.length ?? 0;
 
       // Fetch recent payments for table display (up to 500)
       const { data: allPayments } = await supabaseAdmin
@@ -174,9 +175,6 @@ export const adminOverview = createServerFn({ method: "GET" })
       const failed = (allPayments ?? []).filter((p: any) => p.status === "failed");
       const pending = (allPayments ?? []).filter((p: any) => p.status === "pending");
       const cancelled = (allPayments ?? []).filter((p: any) => p.status === "cancelled");
-
-      const failedAttempts = failed.length + cancelled.length;
-      const pendingCount = pending.length;
 
       // 3. Runs - all statuses
       const { data: allRuns } = await supabaseAdmin
@@ -256,11 +254,13 @@ export const adminOverview = createServerFn({ method: "GET" })
       return {
         metrics: {
           totalRevenue,
+          totalPaidCount,
           totalPayouts,
           netMargin,
           runCount: drawnRuns.length,
-          failedAttempts,
-          pendingCount,
+          failedCount: failed.length,
+          cancelledCount: cancelled.length,
+          pendingCount: pending.length,
           totalSpins: (allRuns ?? []).length,
           failedRuns: failedRuns.length,
         },
@@ -283,10 +283,10 @@ export const adminOverview = createServerFn({ method: "GET" })
         comments,
         auditLog,
         payments: {
-          paid: paid.slice(0, 100),
-          failed: failed.slice(0, 100),
-          pending: pending.slice(0, 50),
-          cancelled: cancelled.slice(0, 100),
+          paid,
+          failed,
+          pending,
+          cancelled,
         },
       };
     } catch (err: any) {
