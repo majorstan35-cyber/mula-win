@@ -265,6 +265,9 @@ function PlayPage() {
   const [stkMsg, setStkMsg] = useState<string>("");
   const [runId, setRunId] = useState<string | null>(null);
   const [spinCount, setSpinCount] = useState(0);
+  const [userCommentText, setUserCommentText] = useState("");
+  const [userCommentPosted, setUserCommentPosted] = useState(false);
+  const [postedText, setPostedText] = useState("");
   const pollTimer = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Auto-incrementing price: 1st=200, 2nd=201, 3rd=203, 4th=205...
@@ -273,6 +276,25 @@ function PlayPage() {
     if (spinCount === 1) return 201;
     return 200 + (spinCount * 2 - 1);
   }, [spinCount]);
+
+  function handleSendComment() {
+    if (!userCommentText.trim()) return;
+    const txt = userCommentText.trim();
+    setPostedText(txt);
+    setUserCommentPosted(true);
+
+    const phoneTag = phone ? `${phone.slice(0, 4)}****${phone.slice(-2)}` : "07XX****XX";
+    const userItem: FeedItem = {
+      id: Date.now(),
+      tag: `You (${phoneTag})`,
+      city: "Live",
+      msg: txt,
+      matched: result?.run.matched_count ?? 8,
+      prizeKes: result?.run.prize_kes || undefined,
+      secondsAgo: 0,
+    };
+    setFeed((prev) => [userItem, ...prev.slice(0, 7)]);
+  }
 
   // Pre-fill phone from user profile
   useEffect(() => {
@@ -357,6 +379,9 @@ function PlayPage() {
     setErr(null);
     setRunId(null);
     setStkMsg("");
+    setUserCommentText("");
+    setUserCommentPosted(false);
+    setPostedText("");
     if (pollTimer.current) clearInterval(pollTimer.current);
   }
 
@@ -366,6 +391,9 @@ function PlayPage() {
     setErr(null);
     setRunId(null);
     setStkMsg("");
+    setUserCommentText("");
+    setUserCommentPosted(false);
+    setPostedText("");
     if (pollTimer.current) clearInterval(pollTimer.current);
 
     // Auto link: directly fire STK push for next round using stored phone number
@@ -643,7 +671,7 @@ function PlayPage() {
       </section>
 
       {result && (
-        <section className="mt-6 rounded-2xl border border-[color:var(--gold)]/30 bg-[color:var(--card)]/60 p-5 text-center animate-slide-up">
+        <section className="mt-6 rounded-2xl border border-[color:var(--gold)]/30 bg-[color:var(--card)]/60 p-5 text-center animate-slide-up space-y-3">
           <div className="text-xs uppercase tracking-widest text-[color:var(--muted-foreground)]">Round #{result.roundNumber}</div>
           <div className="mt-2 font-display text-4xl font-black text-shimmer">
             {result.run.matched_count}/{need} matched
@@ -655,7 +683,49 @@ function PlayPage() {
           ) : (
             <div className="mt-3 text-sm text-[color:var(--muted-foreground)]">No prize this spin. Try again.</div>
           )}
-          <div className="mt-4 break-all font-mono text-[10px] text-[color:var(--muted-foreground)]">
+
+          {/* Realistic Post-Spin Comment Box */}
+          <div className="mt-4 border-t border-[color:var(--border)]/60 pt-4 text-left">
+            <div className="flex items-center justify-between mb-2">
+              <span className="text-xs font-semibold uppercase tracking-wider text-[color:var(--gold-soft)] flex items-center gap-1.5">
+                <span>💬</span>
+                <span>Post a comment</span>
+              </span>
+              <span className="text-[10px] text-[color:var(--muted-foreground)]">Appears live</span>
+            </div>
+
+            {userCommentPosted ? (
+              <div className="rounded-xl border border-emerald-500/40 bg-emerald-500/10 p-3 text-xs text-emerald-300 animate-slide-up flex items-start gap-2.5">
+                <span className="text-base leading-none">✅</span>
+                <div>
+                  <div className="font-bold text-emerald-300">Comment submitted!</div>
+                  <p className="text-[11px] text-emerald-200/80 italic mt-0.5">"{postedText}"</p>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-2">
+                <textarea
+                  rows={2}
+                  value={userCommentText}
+                  onChange={(e) => setUserCommentText(e.target.value)}
+                  placeholder="Write a comment about your spin (e.g. 'Warm up done, spinning again!')..."
+                  className="w-full rounded-xl border border-[color:var(--border)] bg-[color:var(--background)]/80 p-2.5 text-xs text-[color:var(--foreground)] placeholder-[color:var(--muted-foreground)]/60 outline-none focus:border-[color:var(--gold)] resize-none"
+                />
+                <div className="flex justify-end">
+                  <button
+                    onClick={handleSendComment}
+                    disabled={!userCommentText.trim()}
+                    className="rounded-xl bg-gold-gradient px-4 py-1.5 font-display text-xs font-bold text-[oklch(0.12_0.01_60)] shadow-gold disabled:opacity-40 transition active:scale-95 flex items-center gap-1"
+                  >
+                    <span>Send Comment</span>
+                    <span>🚀</span>
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <div className="mt-3 break-all font-mono text-[10px] text-[color:var(--muted-foreground)] opacity-70">
             Commit: {result.seedHash.slice(0, 24)}…
           </div>
         </section>
