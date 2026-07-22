@@ -1,3 +1,6 @@
+import { createServerFn } from "@tanstack/react-start";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+
 // Helper function to call Paystack API with multi-key failover fallback
 async function callPaystackApi(endpoint: string, options: any = {}) {
   const keys = [
@@ -337,26 +340,24 @@ export const getRunStatus = createServerFn({ method: "GET" })
                     seedHash: settled.seedHash,
                     roundNumber: settled.roundNumber
                   };
-                } else if (paystackStatus === "failed") {
-                  // Mark payment failed
-                  await supabaseAdmin
-                    .from('payments')
-                    .update({ status: "failed", raw_callback: verifyPayload })
-                    .eq("id", payment.id);
+            } else if (paystackStatus === "failed") {
+              // Mark payment failed
+              await supabaseAdmin
+                .from('payments')
+                .update({ status: "failed", raw_callback: verifyPayload })
+                .eq("id", payment.id);
 
-                  // Update run to failed
-                  await supabaseAdmin
-                    .from('runs')
-                    .update({ status: 'failed' })
-                    .eq('id', data.runId);
+              // Update run to failed
+              await supabaseAdmin
+                .from('runs')
+                .update({ status: 'failed' })
+                .eq('id', data.runId);
 
-                  return { runStatus: "failed" };
-                }
-              }
+              return { runStatus: "failed" };
             }
-          } catch (err: any) {
-            console.error("Direct Paystack verification failed during polling:", err.message);
           }
+        } catch (err: any) {
+          console.error("Direct Paystack verification failed during polling:", err.message);
         }
       }
 
