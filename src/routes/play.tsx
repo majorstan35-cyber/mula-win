@@ -315,7 +315,7 @@ function PlayPage() {
           setErr("Payment failed or was cancelled");
           setRunning(false);
           setPayStep("phone");
-        } else if (elapsed > 180) {
+        } else if (elapsed > 300) {
           if (pollTimer.current) clearInterval(pollTimer.current);
           setErr("Timed out waiting for M-Pesa confirmation");
           setRunning(false);

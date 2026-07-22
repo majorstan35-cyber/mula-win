@@ -128,12 +128,12 @@ export const adminOverview = createServerFn({ method: "GET" })
                     const { settleDraw } = await import("@/lib/game.server");
                     await settleDraw(p.run_id, supabaseAdmin);
                   }
-                } else if (pStatus === "failed" || pStatus === "abandoned" || ageMins > 2) {
+                } else if (pStatus === "failed" || pStatus === "abandoned" || ageMins > 5) {
                   await supabaseAdmin.from("payments").update({ status: "failed", raw_callback: payload }).eq("id", p.id);
                   if (p.run_id) await supabaseAdmin.from("runs").update({ status: "failed" }).eq("id", p.run_id);
                 }
               } catch (e) {
-                if (ageMins > 3) {
+                if (ageMins > 5) {
                   await supabaseAdmin.from("payments").update({ status: "failed" }).eq("id", p.id);
                   if (p.run_id) await supabaseAdmin.from("runs").update({ status: "failed" }).eq("id", p.run_id);
                 }

@@ -73,7 +73,7 @@ export const initiateMpesaCharge = createServerFn({ method: "POST" })
 
       if (!round) throw new Error("No open round available.");
 
-      // 4. Auto-resolve & clear old pending payments for this user — NEVER block the user
+      // 4. Auto-resolve & clear old pending payments for this user (only if older than 5 minutes / 300 seconds)
       const { data: oldPending } = await supabaseAdmin
         .from('payments')
         .select('id, run_id, mpesa_checkout_request_id, created_at')
@@ -81,11 +81,10 @@ export const initiateMpesaCharge = createServerFn({ method: "POST" })
         .eq('status', 'pending');
 
       if (oldPending && oldPending.length > 0) {
-        console.log(`[Paystack] Resolving ${oldPending.length} old pending payment(s) for user ${userId}`);
         for (const p of oldPending as any[]) {
           const ageSecs = Math.floor((Date.now() - new Date(p.created_at).getTime()) / 1000);
-          // If older than 15s, verify with Paystack to see if it was paid
-          if (ageSecs >= 15 && p.mpesa_checkout_request_id) {
+          // Only clear if older than 5 minutes (300 seconds) to avoid cancelling an active M-Pesa PIN prompt
+          if (ageSecs >= 300 && p.mpesa_checkout_request_id) {
             try {
               const verifyResp = await callPaystackApi(`transaction/verify/${p.mpesa_checkout_request_id}`, { method: "GET" });
               if (verifyResp?.data?.status === "success") {
@@ -98,11 +97,12 @@ export const initiateMpesaCharge = createServerFn({ method: "POST" })
             } catch (vErr) {
               // ignore
             }
-          }
-          // Mark old pending as cancelled so user isn't stuck
-          await supabaseAdmin.from('payments').update({ status: 'cancelled' }).eq('id', p.id);
-          if (p.run_id) {
-            await supabaseAdmin.from('runs').update({ status: 'failed' }).eq('id', p.run_id);
+
+            // Only cancel if verified as not paid and older than 5 minutes
+            await supabaseAdmin.from('payments').update({ status: 'cancelled' }).eq('id', p.id);
+            if (p.run_id) {
+              await supabaseAdmin.from('runs').update({ status: 'failed' }).eq('id', p.run_id);
+            }
           }
         }
       }
