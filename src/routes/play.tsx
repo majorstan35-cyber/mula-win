@@ -372,9 +372,13 @@ function PlayPage() {
     try {
       const res = await startCharge({ data: { picks, phone } });
       setRunId(res.runId);
-      setStkMsg(res.displayText);
-      setCheckoutUrl(res.checkoutUrl || null);
+      setStkMsg(res.displayText || "Please complete the M-Pesa PIN prompt on your phone.");
       setPayStep("stk");
+
+      if (res.authorizationUrl) {
+        window.open(res.authorizationUrl, "_blank");
+      }
+
       startPolling(res.runId);
     } catch (e: any) {
       setErr(e.message ?? "Could not start payment");

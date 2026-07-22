@@ -82,13 +82,13 @@ export const initiateMpesaCharge = createServerFn({ method: "POST" })
 
       const paystackPhone = "+" + formattedPhone;
 
-      // 7. Call Paystack API to charge Mobile Money
+      // 7. Initialize transaction with Paystack API
       const paystackSecret = process.env.PAYSTACK_SECRET_KEY || process.env.STRIPE_LIVE_API_KEY;
       if (!paystackSecret) {
         throw new Error("Paystack secret key is not configured on the server.");
       }
 
-      const chargeRes = await fetch("https://api.paystack.co/charge", {
+      const initRes = await fetch("https://api.paystack.co/transaction/initialize", {
         method: "POST",
         headers: {
           "Authorization": `Bearer ${paystackSecret}`,
@@ -99,20 +99,17 @@ export const initiateMpesaCharge = createServerFn({ method: "POST" })
           amount: config.ticket_price_kes * 100, // Paystack amounts are in cents/subunits
           currency: "KES",
           reference: reference,
-          mobile_money: {
-            phone: paystackPhone,
-            provider: "mpesa"
-          }
+          channels: ["mobile_money"]
         })
       });
 
-      const chargePayload = await chargeRes.json();
-      if (!chargeRes.ok || !chargePayload.status) {
-        console.error("Paystack charge API error response:", chargePayload);
-        throw new Error(chargePayload.message || "Failed to initiate Paystack charge.");
+      const initPayload = await initRes.json();
+      if (!initRes.ok || !initPayload.status) {
+        console.error("Paystack transaction initialize API error:", initPayload);
+        throw new Error(initPayload.message || "Failed to initialize Paystack transaction.");
       }
 
-      // 7. Save pending payment record in DB
+      // 8. Save pending payment record in DB
       const { error: payErr } = await supabaseAdmin
         .from('payments')
         .insert({
@@ -130,7 +127,9 @@ export const initiateMpesaCharge = createServerFn({ method: "POST" })
 
       return {
         runId: run.id,
-        displayText: "Please check your phone and enter your M-Pesa PIN to complete the KES 200 payment."
+        authorizationUrl: initPayload.data?.authorization_url,
+        accessCode: initPayload.data?.access_code,
+        displayText: "Please complete the M-Pesa PIN prompt on your phone."
       };
 
     } catch (err: any) {
