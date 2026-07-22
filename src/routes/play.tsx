@@ -25,28 +25,48 @@ const CITIES = [
   "Ruiru", "Kiambu", "Athi River", "Nanyuki", "Kajiado", "Migori", "Homa Bay", "Busia",
 ];
 
-const WINNING_MESSAGES = [
+// Comments split by prize tier — text MUST match the badge shown
+const WINNING_MESSAGES_20K = [
   "Stay guided omera! KES 20,000 confirmed for Kisumu! 🎉🔥",
-  "Eeeh Ngai fafa 20,000 kwa Mpesa hapo hapo! Njuguna ameamini! 🙌💸",
-  "Omwabo! Kisii town represent! 25,000 payout received! 🤑💃",
-  "Chebet happy 25,000 loaded! Eldoret champion! 🏃💨🥳",
-  "Omwami! Kakamega power 20,000 is real! 💪🎉",
+  "Eeeh Ngai fafa! 20,000 kwa Mpesa hapo hapo! Njuguna ameamini! 🙌💸",
+  "Omwami! Kakamega power — 20,000 is real! 💪🎉",
   "Ero! Mpesa alert 20,000 landed live on phone! 📱✨",
-  "Wairimu happiness overloaded! 50,000 won clean! 💎🚀",
-  "Mogaka joyful! 25k instant payout alert! 🍀🥳",
-  "Kipchoge speed! 20,000 credited live! 🔥🇰🇪",
-  "Webuye represent! 25,000 alert received wuuuh! 🎉💸",
-  "Wuod Baba! 50,000 in the bag! Siaya power! 🚀🎉",
-  "Ngai fafa 25,000 loaded instant! Karatina vibes! 🙌💰",
-  "Stay guided I won 20,000! Machakos represent! 🇰🇪🎉",
-  "Manze 25k alert just popped on my phone! Thika power! 📱🔥",
-  "No way! Matched 11/12! 50,000 jackpot winner here! 💎👑",
+  "9 outta 12 na bado! 20,000 credited live! 🔥🇰🇪",
+  "Nimeamini sasa! 20,000 Machakos represent! 🇰🇪🎉",
   "Mombasa raha! 20,000 credited live on Mpesa! 🌊💸",
+  "Ruiru cyber guy — 20,000 alert confirmed! Bora uhai! 💻🚀",
+];
+
+const WINNING_MESSAGES_25K = [
+  "Omwabo! Kisii town represent! 25,000 payout received! 🤑💃",
+  "Chebet happy — 25,000 loaded! Eldoret champion! 🏃💨🥳",
+  "Mogaka joyful! 25k instant payout alert! 🍀🥳",
+  "Webuye represent! 25,000 alert received wuuuh! 🎉💸",
+  "Ngai fafa 25,000 loaded instant! Karatina vibes! 🙌💰",
+  "Manze 25k alert just popped on my phone! Thika power! 📱🔥",
+  "Kericho tea land — 25,000 payout received, hallelujah! 🍵🥳",
+  "10 out of 12! 25,000 credited straight to Mpesa, Nakuru vibes! 🎊💸",
+];
+
+const WINNING_MESSAGES_50K = [
+  "Wairimu happiness overloaded! 50,000 won clean! 💎🚀",
+  "Wuod Baba! 50,000 in the bag! Siaya power! 🚀🎉",
+  "No way! Matched 11/12! 50,000 jackpot winner here! 💎👑",
+  "Eeeh! 11 numbers matched — 50,000 credited! Mimi ni champion! 🥇🔥",
+  "Kayole represent! 50k alert bana! Dunia ni yetu! 💸👑",
+  "Omwabo! 50,000 saa hii! Kisii county hatuwezi pinga! 🎊💎",
 ];
 
 function generateOrganicMessage(matched: number): string {
-  if (matched >= 9) {
-    return WINNING_MESSAGES[Math.floor(Math.random() * WINNING_MESSAGES.length)];
+  // Pick comment only from the pool that matches the prize tier — no cross-contamination
+  if (matched === 11) {
+    return WINNING_MESSAGES_50K[Math.floor(Math.random() * WINNING_MESSAGES_50K.length)];
+  }
+  if (matched === 10) {
+    return WINNING_MESSAGES_25K[Math.floor(Math.random() * WINNING_MESSAGES_25K.length)];
+  }
+  if (matched === 9) {
+    return WINNING_MESSAGES_20K[Math.floor(Math.random() * WINNING_MESSAGES_20K.length)];
   }
 
   const lowPhrases = [

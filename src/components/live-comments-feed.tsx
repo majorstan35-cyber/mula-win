@@ -12,26 +12,37 @@ export type StreamItem = {
   isWin: boolean;
 };
 
-// Rich multi-language Kenyan winning comments (Kiluo, Kikuyu, Kisii, Kalenjin, Luhya, Swahili, Sheng, English) with emojis
-const WINNING_COMMENTS = [
+// Rich multi-language Kenyan winning comments grouped by prize tier
+// 9/12 = KES 20,000 | 10/12 = KES 25,000 | 11/12 = KES 50,000
+const WINNING_COMMENTS_20K = [
   { text: "Stay guided omera! KES 20,000 confirmed for Kisumu! 🎉🔥", lang: "Jaluo / Kisumu" },
-  { text: "Eeeh Ngai fafa 20,000 kwa Mpesa hapo hapo! Njuguna ameamini! 🙌💸", lang: "Kikuyu / Nyeri" },
-  { text: "Omwabo! Kisii town represent! 25,000 payout received! 🤑💃", lang: "Kisii / Kisii" },
-  { text: "Chebet happy 25,000 loaded! Eldoret champion! 🏃💨🥳", lang: "Kalenjin / Eldoret" },
-  { text: "Omwami! Kakamega power 20,000 is real! 💪🎉", lang: "Luhya / Kakamega" },
+  { text: "Eeeh Ngai fafa! 20,000 kwa Mpesa hapo hapo! Njuguna ameamini! 🙌💸", lang: "Kikuyu / Nyeri" },
+  { text: "Omwami! Kakamega power — 20,000 is real! 💪🎉", lang: "Luhya / Kakamega" },
   { text: "Ero! Mpesa alert 20,000 landed live on phone! 📱✨", lang: "Jaluo / Homa Bay" },
-  { text: "Wairimu happiness overloaded! 50,000 won clean! 💎🚀", lang: "Kikuyu / Kiambu" },
-  { text: "Mogaka joyful! 25k instant payout alert! 🍀🥳", lang: "Kisii / Nyamira" },
-  { text: "Kipchoge speed! 20,000 credited live! 🔥🇰🇪", lang: "Kalenjin / Iten" },
-  { text: "Webuye represent! 25,000 alert received wuuuh! 🎉💸", lang: "Luhya / Webuye" },
-  { text: "Wuod Baba! 50,000 in the bag! Siaya power! 🚀🎉", lang: "Jaluo / Siaya" },
-  { text: "Ngai fafa 25,000 loaded instant! Karatina vibes! 🙌💰", lang: "Kikuyu / Karatina" },
-  { text: "Stay guided I won 20,000! Machakos represent! 🇰🇪🎉", lang: "Kamba / Machakos" },
-  { text: "Manze 25k alert just popped on my phone! Thika power! 📱🔥", lang: "Sheng / Thika" },
-  { text: "No way! Matched 11/12! 50,000 jackpot winner here! 💎👑", lang: "English / Nairobi" },
+  { text: "9 outta 12 na bado! 20,000 credited live! 🔥🇰🇪", lang: "Kalenjin / Iten" },
+  { text: "Nimeamini sasa! 20,000 Machakos represent! 🇰🇪🎉", lang: "Kamba / Machakos" },
   { text: "Mombasa raha! 20,000 credited live on Mpesa! 🌊💸", lang: "Swahili / Mombasa" },
-  { text: "Kericho tea land! 25,000 payout received! 🍵🥳", lang: "Kalenjin / Kericho" },
-  { text: "Ruiru cyber guy here! 20,000 alert confirmed! 💻🚀", lang: "Sheng / Ruiru" },
+  { text: "Ruiru cyber guy — 20,000 alert confirmed! Bora uhai! 💻🚀", lang: "Sheng / Ruiru" },
+];
+
+const WINNING_COMMENTS_25K = [
+  { text: "Omwabo! Kisii town represent! 25,000 payout received! 🤑💃", lang: "Kisii / Kisii" },
+  { text: "Chebet happy — 25,000 loaded! Eldoret champion! 🏃💨🥳", lang: "Kalenjin / Eldoret" },
+  { text: "Mogaka joyful! 25k instant payout alert! 🍀🥳", lang: "Kisii / Nyamira" },
+  { text: "Webuye represent! 25,000 alert received wuuuh! 🎉💸", lang: "Luhya / Webuye" },
+  { text: "Ngai fafa 25,000 loaded instant! Karatina vibes! 🙌💰", lang: "Kikuyu / Karatina" },
+  { text: "Manze 25k alert just popped on my phone! Thika power! 📱🔥", lang: "Sheng / Thika" },
+  { text: "Kericho tea land — 25,000 payout received, hallelujah! 🍵🥳", lang: "Kalenjin / Kericho" },
+  { text: "10 out of 12! 25,000 credited straight to Mpesa, Nakuru vibes! 🎊💸", lang: "Nakuru Player" },
+];
+
+const WINNING_COMMENTS_50K = [
+  { text: "Wairimu happiness overloaded! 50,000 won clean! 💎🚀", lang: "Kikuyu / Kiambu" },
+  { text: "Wuod Baba! 50,000 in the bag! Siaya power! 🚀🎉", lang: "Jaluo / Siaya" },
+  { text: "No way! Matched 11/12! 50,000 jackpot winner here! 💎👑", lang: "English / Nairobi" },
+  { text: "Eeeh! 11 numbers matched — 50,000 credited! Mimi ni champion! 🥇🔥", lang: "Kikuyu / Thika" },
+  { text: "Kayole represent! 50k alert bana! Dunia ni yetu! 💸👑", lang: "Sheng / Nairobi" },
+  { text: "Omwabo! 50,000 saa hii! Kisii county hatuwezi pinga! 🎊💎", lang: "Kisii / Kisii" },
 ];
 
 const NON_WIN_MESSAGES = [
@@ -76,7 +87,12 @@ export function generateOrganicStream(count = 25): StreamItem[] {
       if (matched === 10) prizeKes = 25000;
       if (matched === 11) prizeKes = 50000;
 
-      const commentObj = WINNING_COMMENTS[i % WINNING_COMMENTS.length];
+      // Always pick comment from the matching prize tier so text & badge always agree
+      const pool =
+        prizeKes === 50000 ? WINNING_COMMENTS_50K :
+        prizeKes === 25000 ? WINNING_COMMENTS_25K :
+        WINNING_COMMENTS_20K;
+      const commentObj = pool[i % pool.length];
 
       list.push({
         id: i,
