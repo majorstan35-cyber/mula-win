@@ -55,6 +55,16 @@ function buildTargetNumbers(
   return fyShuffle([...matchingNums, ...nonMatchingNums]);
 }
 
+// Deterministically randomizes non-win match counts between 4/12 and 8/12
+function getNonWinMatchCount(hash: string): number {
+  const val = parseInt(hash.slice(8, 12), 16) % 100;
+  if (val < 30) return 8; // 30% -> 8/12
+  if (val < 60) return 7; // 30% -> 7/12
+  if (val < 80) return 6; // 20% -> 6/12
+  if (val < 90) return 5; // 10% -> 5/12
+  return 4;              // 10% -> 4/12
+}
+
 // determineOutcome
 // Core algorithm: deterministic roll from run.id decides match count (M)
 // and prize based on total system revenue.
@@ -68,10 +78,9 @@ function determineOutcome(
   const roll = parseInt(hash.slice(0, 8), 16) % 1_000_000; // 0 … 999 999
 
   // Below float threshold (KES 250,000)
-  // No prizes at all. Hard ceiling: 8/12 (90%) or 7/12 (10%).
+  // No prizes at all. Match count randomized between 4/12 and 8/12.
   if (totalRevenue < 250_000) {
-    const lowRoll = parseInt(hash.slice(8, 10), 16) % 100; // 0-99
-    const M = lowRoll < 90 ? 8 : 7; // 90% → 8, 10% → 7
+    const M = getNonWinMatchCount(hash);
     return { M, prize: 0 };
   }
 
@@ -96,9 +105,8 @@ function determineOutcome(
     return { M: 9, prize: 20_000 };
   }
 
-  // Default near-miss: 90% chance 8/12, 10% chance 7/12, KES 0
-  const nearRoll = parseInt(hash.slice(10, 12), 16) % 100; // 0-99
-  const M = nearRoll < 90 ? 8 : 7;
+  // Default near-miss: randomized between 4/12 and 8/12
+  const M = getNonWinMatchCount(hash);
   return { M, prize: 0 };
 }
 
@@ -215,6 +223,6 @@ export function getTargetNumbersForRun(
   poolMax: number
 ): number[] {
   const hash = crypto.createHash("sha256").update(run.id).digest("hex");
-  const M = run.matched_count ?? 8; // use what was stored
+  const M = run.matched_count ?? getNonWinMatchCount(hash); // use what was stored or derive
   return buildTargetNumbers(run.player_numbers || [], M, poolMin, poolMax, hash);
 }
